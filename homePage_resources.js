@@ -603,6 +603,10 @@ liveAiToggle.addEventListener("change", () => {
         : "Mode: Local ML chatbot.";
 });
 
+chatApiStatus.textContent = liveAiToggle.checked
+    ? "Mode: DeepSeek API enabled."
+    : "Mode: Local ML chatbot.";
+
 if (themeToggleBtn) {
     const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || "dark";
     applyTheme(savedTheme);
