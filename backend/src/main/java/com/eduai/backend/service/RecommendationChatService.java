@@ -1,0 +1,146 @@
+﻿package com.eduai.backend.service;
+
+import com.eduai.backend.model.AssessmentSnapshot;
+import com.eduai.backend.model.ChatRequest;
+import com.eduai.backend.model.RecommendationScore;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+
+@Service
+public class RecommendationChatService {
+
+    public String generateReply(ChatRequest request) {
+        String userMessage = request.message() == null ? "" : request.message().trim();
+        if (userMessage.isEmpty()) {
+            return "Please type your question. I can suggest school-level learning paths.";
+        }
+
+        String lower = userMessage.toLowerCase(Locale.ROOT);
+        if (!"school_students_only".equalsIgnoreCase(request.scope())) {
+            return "This chatbot is configured for school students only. Please use school-level queries.";
+        }
+
+        if (lower.contains("last recommendation") && request.latestAssessment() != null) {
+            return formatLastRecommendation(request.latestAssessment());
+        }
+
+        StudentProfile profile = parseProfile(lower);
+        List<String> ranked = rankRecommendations(profile);
+
+        String top = ranked.isEmpty() ? "Foundations of Algebra" : ranked.get(0);
+        String second = ranked.size() > 1 ? ranked.get(1) : "Concept Videos and Visual Notes";
+        return "For school students, I recommend " + top + " and " + second + ". Intent detected: " + profile.intent + ".";
+    }
+
+    private String formatLastRecommendation(AssessmentSnapshot snapshot) {
+        List<RecommendationScore> list = snapshot.recommendations() == null ? List.of() : snapshot.recommendations();
+        if (list.isEmpty()) {
+            return "No previous recommendations found. Please run a new assessment first.";
+        }
+
+        String first = list.get(0).name();
+        String second = list.size() > 1 ? list.get(1).name() : "Concept Videos and Visual Notes";
+        return "Your last school recommendation was: " + first + " and " + second + ".";
+    }
+
+    private StudentProfile parseProfile(String text) {
+        String subject = "mathematics";
+        if (text.contains("program")) {
+            subject = "programming";
+        } else if (text.contains("analytic") || text.contains("data")) {
+            subject = "analytics";
+        } else if (text.contains("ai") || text.contains("machine learning")) {
+            subject = "ai";
+        }
+
+        String style = "mixed";
+        if (text.contains("visual")) {
+            style = "visual";
+        } else if (text.contains("read")) {
+            style = "reading";
+        } else if (text.contains("hands")) {
+            style = "handson";
+        }
+
+        String performance = "medium";
+        if (text.contains("low") || text.contains("weak")) {
+            performance = "low";
+        } else if (text.contains("high") || text.contains("strong")) {
+            performance = "high";
+        }
+
+        int quiz = extractQuizScore(text);
+        String intent = detectIntent(text, performance, quiz);
+        return new StudentProfile(subject, style, performance, quiz, intent);
+    }
+
+    private int extractQuizScore(String text) {
+        String[] tokens = text.split("[^0-9]+", -1);
+        for (String token : tokens) {
+            if (!token.isBlank()) {
+                int val = Integer.parseInt(token);
+                if (val >= 0 && val <= 100) {
+                    return val;
+                }
+            }
+        }
+        return 65;
+    }
+
+    private String detectIntent(String text, String performance, int quizScore) {
+        if (text.contains("certification") || text.contains("exam")) {
+            return "Certification preparation";
+        }
+        if ("low".equals(performance) || quizScore < 60 || text.contains("improve") || text.contains("weak")) {
+            return "Skill assessment";
+        }
+        if (text.contains("explore") || text.contains("topic")) {
+            return "Topic exploration";
+        }
+        return "Structured upskilling plan";
+    }
+
+    private List<String> rankRecommendations(StudentProfile profile) {
+        List<String> recs = new ArrayList<>();
+
+        switch (profile.subject) {
+            case "programming" -> {
+                recs.add("Programming Fundamentals");
+                recs.add("Data Structures with Practice");
+            }
+            case "analytics" -> {
+                recs.add("Statistics Basics");
+                recs.add("Data Visualization Studio");
+            }
+            case "ai" -> {
+                recs.add("AI Foundations");
+                recs.add("Machine Learning Concepts");
+            }
+            default -> {
+                recs.add("Foundations of Algebra");
+                recs.add("Applied Problem Solving Lab");
+            }
+        }
+
+        if ("Certification preparation".equals(profile.intent)) {
+            recs.add("Certification Mock Test Series");
+        }
+        if ("Skill assessment".equals(profile.intent) || "low".equals(profile.performance) || profile.quizScore < 60) {
+            recs.add("Diagnostic Quiz Pack and Gap Remediation");
+            recs.add("Beginner Pace Mentor Sessions");
+        }
+        if ("visual".equals(profile.style)) {
+            recs.add("Concept Videos and Visual Notes");
+        }
+        if ("handson".equals(profile.style)) {
+            recs.add("Hands-on Assignments and Weekly Projects");
+        }
+
+        return recs.stream().distinct().limit(5).toList();
+    }
+
+    private record StudentProfile(String subject, String style, String performance, int quizScore, String intent) {}
+}

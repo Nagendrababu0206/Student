@@ -1,0 +1,265 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EDUAI | Student Home</title>
+    <link rel="stylesheet" href="homeStyle.css">
+</head>
+<body>
+    <header class="topbar">
+        <div>
+            <p class="eyebrow">Student Interface</p>
+            <h1>Study Analytics Dashboard</h1>
+        </div>
+        <div class="profile-chip">
+            <span id="welcomeUser">Student</span>
+            <button id="themeToggleBtn" type="button">Light Mode</button>
+            <button id="logoutBtn" type="button">Logout</button>
+        </div>
+    </header>
+
+    <main class="dashboard">
+        <section class="metrics" aria-label="Study metrics">
+            <article class="metric-card">
+                <h2>Weekly Study Hours</h2>
+                <p class="metric-value" id="weeklyHours">14.5 hrs</p>
+                <p class="metric-sub">+2.1 hrs from last week</p>
+            </article>
+            <article class="metric-card">
+                <h2>Course Completion</h2>
+                <p class="metric-value" id="completionRate">68%</p>
+                <p class="metric-sub">Target: 80%</p>
+            </article>
+            <article class="metric-card">
+                <h2>Current Streak</h2>
+                <p class="metric-value" id="streakDays">9 days</p>
+                <p class="metric-sub">Keep momentum going</p>
+            </article>
+        </section>
+
+        <section class="panel-grid">
+            <article class="panel">
+                <h3>Today's Focus Plan</h3>
+                <ul class="list" id="focusList">
+                    <li>Data Structures: 45 min</li>
+                    <li>DBMS Quiz Revision: 30 min</li>
+                    <li>AI Ethics Reading: 20 min</li>
+                </ul>
+            </article>
+
+            <article class="panel chart-panel">
+                <h3>Study Hours (Last 7 Days)</h3>
+                <div class="bar-chart" id="studyChart" aria-label="Study chart"></div>
+            </article>
+
+            <article class="panel">
+                <h3>Subject Performance</h3>
+                <div class="progress-group">
+                    <label>Mathematics</label>
+                    <div class="progress"><span style="width: 74%"></span></div>
+                </div>
+                <div class="progress-group">
+                    <label>Programming</label>
+                    <div class="progress"><span style="width: 82%"></span></div>
+                </div>
+                <div class="progress-group">
+                    <label>Data Analytics</label>
+                    <div class="progress"><span style="width: 65%"></span></div>
+                </div>
+            </article>
+
+            <article class="panel graphic-panel">
+                <h3>Learning Snapshot</h3>
+                <div class="snapshot-grid">
+                    <div class="donut" aria-label="Course goal progress">
+                        <div class="donut-center">
+                            <strong>68%</strong>
+                            <span>Goal Done</span>
+                        </div>
+                    </div>
+                    <div class="trend-box">
+                        <svg viewBox="0 0 300 120" role="img" aria-label="Weekly progress trend">
+                            <polyline fill="none" stroke="#93c5fd" stroke-width="3" points="10,95 60,70 110,75 160,42 210,52 260,25 290,18"></polyline>
+                            <circle cx="290" cy="18" r="5" fill="#0284c7"></circle>
+                        </svg>
+                        <p>Consistency is improving this week.</p>
+                    </div>
+                </div>
+            </article>
+        </section>
+
+        <section class="workflow-section" aria-label="Learning guidance workflow">
+            <h2>Learning Guidance Workflow</h2>
+            <p class="workflow-sub">Includes: user input, intent detection, need assessment, recommendations, feedback handling, engagement flow, and compliance guardrails.</p>
+
+            <div class="workflow-grid">
+                <article class="panel workflow-panel">
+                    <h3>1. User Input Interface + 3. Need Assessment</h3>
+                    <form id="assessmentForm" class="stack-form">
+                        <div class="form-row">
+                            <label for="gradeLevel">Grade Level (School Only)</label>
+                            <select id="gradeLevel" required>
+                                <option value="school" selected>School</option>
+                            </select>
+                        </div>
+
+                        <div class="form-row">
+                            <label for="subjectInterest">Subject Interest</label>
+                            <select id="subjectInterest" required>
+                                <option value="">Select subject</option>
+                                <option value="mathematics">Mathematics</option>
+                                <option value="programming">Programming</option>
+                                <option value="analytics">Data Analytics</option>
+                                <option value="ai">Artificial Intelligence</option>
+                            </select>
+                        </div>
+
+                        <div class="form-row">
+                            <label for="learningStyle">Learning Style</label>
+                            <select id="learningStyle" required>
+                                <option value="">Select style</option>
+                                <option value="visual">Visual</option>
+                                <option value="reading">Reading/Writing</option>
+                                <option value="handson">Hands-on Practice</option>
+                                <option value="mixed">Mixed</option>
+                            </select>
+                        </div>
+
+                        <div class="form-row">
+                            <label for="performance">Current Performance</label>
+                            <select id="performance" required>
+                                <option value="">Select performance</option>
+                                <option value="high">High (80%+)</option>
+                                <option value="medium">Medium (60-79%)</option>
+                                <option value="low">Low (Below 60%)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-row">
+                            <label for="quizScore">Quiz Score (%)</label>
+                            <input type="number" id="quizScore" min="0" max="100" placeholder="e.g. 67" required>
+                        </div>
+
+                        <div class="form-row">
+                            <label for="textQuery">Text Query</label>
+                            <textarea id="textQuery" rows="3" placeholder="Type what you want to learn or improve..."></textarea>
+                        </div>
+
+                        <div class="form-row">
+                            <label class="inline-check">
+                                <input type="checkbox" id="goalCertification">
+                                Certification Preparation
+                            </label>
+                        </div>
+
+                        <button type="submit">Run Assessment</button>
+                    </form>
+                </article>
+
+                <article class="panel workflow-panel">
+                    <h3>2. Intent Detection</h3>
+                    <p id="intentResult" class="output-box">Intent will appear after assessment.</p>
+
+                    <h3>4. Recommendation Engine</h3>
+                    <ul id="recommendationList" class="output-list">
+                        <li>Complete the assessment to view recommendations.</li>
+                    </ul>
+                    <p id="mlModelInfo" class="output-box">ML scoring details will appear after assessment.</p>
+
+                    <h3>7. Compliance Guardrails</h3>
+                    <div class="guardrail-box">
+                        <p>Recommendations follow privacy, fairness, and transparency checks.</p>
+                        <ul class="list compact-list">
+                            <li>No sensitive personal data used for ranking.</li>
+                            <li>Bias-sensitive attributes are excluded.</li>
+                            <li>Recommendation reasons are shown clearly.</li>
+                            <li>User can request profile data reset.</li>
+                        </ul>
+                        <label class="inline-check">
+                            <input type="checkbox" id="consentCheck">
+                            I consent to educational profile processing for recommendations.
+                        </label>
+                        <p id="complianceMsg" class="hint">Consent required before final recommendation release.</p>
+                    </div>
+                </article>
+
+                <article class="panel workflow-panel">
+                    <h3>5. Feedback Handling</h3>
+                    <div class="feedback-group">
+                        <label class="inline-check"><input type="radio" name="concern" value="difficulty" checked> Difficulty level is too high</label>
+                        <label class="inline-check"><input type="radio" name="concern" value="relevance"> Content is not relevant</label>
+                        <label class="inline-check"><input type="radio" name="concern" value="clarity"> Explanations are unclear</label>
+                        <label class="inline-check"><input type="radio" name="concern" value="pace"> Pace is too fast</label>
+                    </div>
+                    <div class="form-row">
+                        <label for="feedbackText">Additional Feedback</label>
+                        <textarea id="feedbackText" rows="3" placeholder="Optional details"></textarea>
+                    </div>
+                    <button id="submitFeedback" type="button">Submit Feedback</button>
+                    <p id="feedbackResponse" class="output-box">Feedback response will appear here.</p>
+
+                    <h3>6. Engagement Flow</h3>
+                    <div class="engage-actions">
+                        <button id="openResources" type="button" class="small-btn">Access Resources</button>
+                        <button id="enrollCourse" type="button" class="small-btn">Enroll in Course</button>
+                        <button id="trackProgress" type="button" class="small-btn">Track Progress</button>
+                    </div>
+                    <p id="engagementStatus" class="output-box">Choose an action to continue your learning journey.</p>
+                    <p id="assessmentSummary" class="output-box">Assessment summary will appear here.</p>
+                </article>
+            </div>
+
+            <article class="panel">
+                <h3>Resources and Enrollment</h3>
+                <p class="workflow-sub">Browse available study resources, enroll in selected content, and track completion.</p>
+
+                <div class="resource-toolbar">
+                    <div class="form-row">
+                        <label for="resourceFilter">Filter by Subject</label>
+                        <select id="resourceFilter">
+                            <option value="all">All Subjects</option>
+                            <option value="mathematics">Mathematics</option>
+                            <option value="programming">Programming</option>
+                            <option value="analytics">Data Analytics</option>
+                            <option value="ai">Artificial Intelligence</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="resourceCatalog" class="resource-grid" aria-label="Available resources"></div>
+
+                <h4 class="sub-heading">Enrolled Content</h4>
+                <ul id="enrolledList" class="output-list">
+                    <li>No enrolled resources yet.</li>
+                </ul>
+            </article>
+
+            <article class="panel chatbot-panel">
+                <h3>AI Recommendation Chatbot (School Students)</h3>
+                <p class="workflow-sub">Ask this bot for school-focused course suggestions, study plans, and next steps.</p>
+                <label class="inline-check">
+                    <input id="liveAiToggle" type="checkbox">
+                    Use Live AI API
+                </label>
+                <p id="chatApiStatus" class="hint">Mode: Local ML chatbot.</p>
+                <div id="chatMessages" class="chat-messages" aria-live="polite">
+                    <div class="chat-row bot">
+                        <p>Hello! I am your school recommendation assistant. Ask me what to study next.</p>
+                    </div>
+                </div>
+                <div class="chat-input-row">
+                    <input id="chatInput" type="text" placeholder="Example: Recommend for math with low quiz score">
+                    <button id="chatSend" type="button">Send</button>
+                </div>
+            </article>
+        </section>
+    </main>
+
+    <script src="homePage_resources.js"></script>
+</body>
+</html>
+
+
+
+

@@ -1,0 +1,40 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EDUAI | Login</title>
+    <link rel="stylesheet" href="loginStyle.css">
+</head>
+<body id="loginPage" class="body">
+    <main class="auth-shell">
+        <section class="auth-panel" aria-label="Login form">
+            <h1 class="h1">Login</h1>
+            <p class="subtitle">Welcome back. Sign in to continue learning.</p>
+
+            <form id="loginForm" action="#" method="post" class="form" novalidate>
+                <div class="input-type">
+                    <label class="label" for="username">Email</label>
+                    <input type="email" id="username" name="username" placeholder="Enter your email" required>
+                </div>
+
+                <div class="input-type">
+                    <label class="label" for="password">Password</label>
+                    <input type="password" id="password" name="password" placeholder="Enter your password" required>
+                </div>
+
+                <button type="submit">Sign In</button>
+
+                <div class="meta-row">
+                    <a class="meta-link" href="#">Forgot Password?</a>
+                </div>
+
+                <p class="switch-text">Don't have an account?</p>
+                <a href="Signup.html" class="btn-secondary">Create Account</a>
+            </form>
+        </section>
+    </main>
+
+    <script src="Script.js"></script>
+</body>
+</html>
