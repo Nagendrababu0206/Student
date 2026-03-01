@@ -40,7 +40,7 @@ const enrolledResourceIds = new Set();
 const API_BASE =
     window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
         ? "http://localhost:3001"
-        : "https://YOUR-BACKEND-SERVICE.onrender.com";
+        : "";
 const REMOTE_CHAT_ENDPOINT = `${API_BASE}/api/recommend-chat`;
 const THEME_STORAGE_KEY = "eduaiTheme";
 const feedbackSignals = {

@@ -2,7 +2,7 @@ const registerForm = document.getElementById("registerForm");
 const API_BASE =
     window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
         ? "http://localhost:3001"
-        : "https://YOUR-BACKEND-SERVICE.onrender.com";
+        : "";
 const REGISTER_API = `${API_BASE}/api/register`;
 
 if (registerForm) {
