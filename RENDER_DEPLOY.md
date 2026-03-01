@@ -17,6 +17,10 @@ This project is split into:
 5. After deploy, copy backend URL, for example:
    - `https://student-backend.onrender.com`
 6. Add backend environment variables in Render (`Environment` tab):
+   - `SPRING_DATASOURCE_URL` = `jdbc:postgresql://<host>:5432/<db>?sslmode=require`
+   - `SPRING_DATASOURCE_USERNAME` = your DB username
+   - `SPRING_DATASOURCE_PASSWORD` = your DB password
+   - Optional: `SPRING_JPA_HIBERNATE_DDL_AUTO` = `update`
    - `DEEPSEEK_API_KEY` = your DeepSeek API key
    - Optional: `DEEPSEEK_MODEL` = `deepseek-chat`
    - Optional: `DEEPSEEK_ENDPOINT` = `https://api.deepseek.com/chat/completions`

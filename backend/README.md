@@ -6,6 +6,7 @@ Spring Boot backend for login, registration, and school-only recommendation chat
 - Java 17
 - Spring Boot 3
 - Maven
+- PostgreSQL
 
 ## Run
 1. Open terminal in `backend/`
@@ -16,6 +17,14 @@ mvn spring-boot:run
 ```
 
 Backend starts on: `http://localhost:3001`
+
+## Database configuration
+Set these environment variables before running:
+
+- `SPRING_DATASOURCE_URL` (example: `jdbc:postgresql://<host>:5432/<db>`)
+- `SPRING_DATASOURCE_USERNAME`
+- `SPRING_DATASOURCE_PASSWORD`
+- optional: `SPRING_JPA_HIBERNATE_DDL_AUTO` (default: `update`)
 
 ## Endpoints
 - `GET /api/health`
@@ -56,5 +65,5 @@ Backend starts on: `http://localhost:3001`
 - `homePage.js` live AI toggle -> `POST /api/recommend-chat`
 
 ## Notes
-- User data is stored in memory for prototype usage.
-- Restarting backend resets registered users.
+- User data is stored in PostgreSQL.
+- Passwords are stored as BCrypt hashes.
