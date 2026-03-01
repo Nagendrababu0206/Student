@@ -5,6 +5,8 @@ import com.eduai.backend.model.ChatRequest;
 import com.eduai.backend.model.RecommendationScore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -15,9 +17,11 @@ import java.net.http.HttpResponse;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.stream.Stream;
 
 @Service
 public class RecommendationChatService {
+    private static final Logger log = LoggerFactory.getLogger(RecommendationChatService.class);
     private static final String SYSTEM_PROMPT =
             "You are EDUAI assistant for school students only. " +
             "Give concise, practical study guidance and recommendations. " +
@@ -58,10 +62,24 @@ public class RecommendationChatService {
     private String fetchDeepSeekReply(ChatRequest request) {
         String apiKey = System.getenv("DEEPSEEK_API_KEY");
         if (apiKey == null || apiKey.isBlank()) {
+            log.warn("DeepSeek disabled: DEEPSEEK_API_KEY is missing.");
             return null;
         }
 
-        String endpoint = System.getenv().getOrDefault("DEEPSEEK_ENDPOINT", "https://api.deepseek.com/chat/completions");
+        String configuredEndpoint = System.getenv("DEEPSEEK_ENDPOINT");
+        List<String> endpointCandidates = configuredEndpoint == null || configuredEndpoint.isBlank()
+                ? List.of(
+                        "https://api.deepseek.com/chat/completions",
+                        "https://api.deepseek.com/v1/chat/completions"
+                )
+                : Stream.of(
+                                configuredEndpoint,
+                                configuredEndpoint.replace("/v1/chat/completions", "/chat/completions"),
+                                configuredEndpoint.replace("/chat/completions", "/v1/chat/completions")
+                        )
+                        .distinct()
+                        .toList();
+
         String model = System.getenv().getOrDefault("DEEPSEEK_MODEL", "deepseek-chat");
         String userPrompt = buildUserPrompt(request);
 
@@ -74,36 +92,58 @@ public class RecommendationChatService {
                 0.4
         );
 
-        try {
-            String body = objectMapper.writeValueAsString(payload);
-            HttpRequest httpRequest = HttpRequest.newBuilder()
-                    .uri(URI.create(endpoint))
-                    .header("Authorization", "Bearer " + apiKey)
-                    .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(body))
-                    .build();
+        for (String endpoint : endpointCandidates) {
+            try {
+                String body = objectMapper.writeValueAsString(payload);
+                HttpRequest httpRequest = HttpRequest.newBuilder()
+                        .uri(URI.create(endpoint))
+                        .header("Authorization", "Bearer " + apiKey)
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString(body))
+                        .build();
 
-            HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                return null;
-            }
+                HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
+                if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                    log.warn("DeepSeek call failed: endpoint={} status={} body={}",
+                            endpoint,
+                            response.statusCode(),
+                            abbreviate(response.body(), 300));
+                    continue;
+                }
 
-            DeepSeekResponse parsed = objectMapper.readValue(response.body(), DeepSeekResponse.class);
-            if (parsed == null || parsed.choices == null || parsed.choices.isEmpty()) {
-                return null;
-            }
+                DeepSeekResponse parsed = objectMapper.readValue(response.body(), DeepSeekResponse.class);
+                if (parsed == null || parsed.choices == null || parsed.choices.isEmpty()) {
+                    log.warn("DeepSeek response had no choices: endpoint={}", endpoint);
+                    continue;
+                }
 
-            DeepSeekChoice choice = parsed.choices.get(0);
-            if (choice == null || choice.message == null) {
+                DeepSeekChoice choice = parsed.choices.get(0);
+                if (choice == null || choice.message == null) {
+                    log.warn("DeepSeek response missing message in first choice: endpoint={}", endpoint);
+                    continue;
+                }
+                return choice.message.content;
+            } catch (IOException ex) {
+                log.warn("DeepSeek IO error for endpoint={}: {}", endpoint, ex.getMessage());
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                log.warn("DeepSeek request interrupted for endpoint={}", endpoint);
                 return null;
+            } catch (IllegalArgumentException ex) {
+                log.warn("Invalid DeepSeek endpoint configured: {}", endpoint);
             }
-            return choice.message.content;
-        } catch (IOException ex) {
-            return null;
-        } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
-            return null;
         }
+        return null;
+    }
+
+    private String abbreviate(String text, int maxLen) {
+        if (text == null) {
+            return "";
+        }
+        if (text.length() <= maxLen) {
+            return text;
+        }
+        return text.substring(0, maxLen) + "...";
     }
 
     private String buildUserPrompt(ChatRequest request) {
