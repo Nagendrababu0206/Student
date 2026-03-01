@@ -1,4 +1,4 @@
-﻿package com.eduai.backend.controller;
+package com.eduai.backend.controller;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

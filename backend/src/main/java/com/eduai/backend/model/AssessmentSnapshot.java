@@ -1,4 +1,4 @@
-﻿package com.eduai.backend.model;
+package com.eduai.backend.model;
 
 import java.util.List;
 

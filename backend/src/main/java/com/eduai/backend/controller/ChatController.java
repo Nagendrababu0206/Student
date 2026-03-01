@@ -1,4 +1,4 @@
-﻿package com.eduai.backend.controller;
+package com.eduai.backend.controller;
 
 import com.eduai.backend.model.ChatRequest;
 import com.eduai.backend.model.ChatResponse;

@@ -1,4 +1,4 @@
-﻿package com.eduai.backend.controller;
+package com.eduai.backend.controller;
 
 import com.eduai.backend.model.LoginRequest;
 import com.eduai.backend.model.LoginResponse;

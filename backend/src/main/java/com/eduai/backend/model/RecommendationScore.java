@@ -1,4 +1,4 @@
-﻿package com.eduai.backend.model;
+package com.eduai.backend.model;
 
 public record RecommendationScore(
         String name,
