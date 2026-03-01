@@ -333,16 +333,16 @@ async function handleChatSend() {
     }
 
     if (liveAiToggle.checked) {
-        chatApiStatus.textContent = "Mode: Live AI API (request in progress).";
+        chatApiStatus.textContent = "Mode: DeepSeek API (request in progress).";
         chatSend.disabled = true;
         try {
             const remoteReply = await fetchRemoteChatbotReply(userText);
             addChatMessage("bot", remoteReply);
-            chatApiStatus.textContent = "Mode: Live AI API (connected).";
+            chatApiStatus.textContent = "Mode: DeepSeek API (connected).";
         } catch (error) {
             const fallbackReply = buildChatResponse(userText);
             addChatMessage("bot", `${fallbackReply} [Fallback: ${error.message}]`);
-            chatApiStatus.textContent = "Mode: Live AI API failed, switched to local ML fallback.";
+            chatApiStatus.textContent = "Mode: DeepSeek API failed, switched to local ML fallback.";
         } finally {
             chatSend.disabled = false;
         }
@@ -368,7 +368,8 @@ chatInput.addEventListener("keydown", (event) => {
 
 liveAiToggle.addEventListener("change", () => {
     chatApiStatus.textContent = liveAiToggle.checked
-        ? "Mode: Live AI API enabled."
+        ? "Mode: DeepSeek API enabled."
         : "Mode: Local ML chatbot.";
 });
+
 

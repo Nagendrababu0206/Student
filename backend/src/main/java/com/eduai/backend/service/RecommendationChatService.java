@@ -1,16 +1,30 @@
-﻿package com.eduai.backend.service;
+package com.eduai.backend.service;
 
 import com.eduai.backend.model.AssessmentSnapshot;
 import com.eduai.backend.model.ChatRequest;
 import com.eduai.backend.model.RecommendationScore;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
 @Service
 public class RecommendationChatService {
+    private static final String SYSTEM_PROMPT =
+            "You are EDUAI assistant for school students only. " +
+            "Give concise, practical study guidance and recommendations. " +
+            "If user asks outside school scope, politely refuse and redirect to school-level guidance.";
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final HttpClient httpClient = HttpClient.newHttpClient();
 
     public String generateReply(ChatRequest request) {
         String userMessage = request.message() == null ? "" : request.message().trim();
@@ -27,12 +41,88 @@ public class RecommendationChatService {
             return formatLastRecommendation(request.latestAssessment());
         }
 
+        String deepSeekReply = fetchDeepSeekReply(request);
+        if (deepSeekReply != null && !deepSeekReply.isBlank()) {
+            return deepSeekReply.trim();
+        }
+
+        // Fallback to local deterministic logic when DeepSeek is unavailable.
         StudentProfile profile = parseProfile(lower);
         List<String> ranked = rankRecommendations(profile);
 
         String top = ranked.isEmpty() ? "Foundations of Algebra" : ranked.get(0);
         String second = ranked.size() > 1 ? ranked.get(1) : "Concept Videos and Visual Notes";
         return "For school students, I recommend " + top + " and " + second + ". Intent detected: " + profile.intent + ".";
+    }
+
+    private String fetchDeepSeekReply(ChatRequest request) {
+        String apiKey = System.getenv("DEEPSEEK_API_KEY");
+        if (apiKey == null || apiKey.isBlank()) {
+            return null;
+        }
+
+        String endpoint = System.getenv().getOrDefault("DEEPSEEK_ENDPOINT", "https://api.deepseek.com/chat/completions");
+        String model = System.getenv().getOrDefault("DEEPSEEK_MODEL", "deepseek-chat");
+        String userPrompt = buildUserPrompt(request);
+
+        DeepSeekRequest payload = new DeepSeekRequest(
+                model,
+                List.of(
+                        new DeepSeekMessage("system", SYSTEM_PROMPT),
+                        new DeepSeekMessage("user", userPrompt)
+                ),
+                0.4
+        );
+
+        try {
+            String body = objectMapper.writeValueAsString(payload);
+            HttpRequest httpRequest = HttpRequest.newBuilder()
+                    .uri(URI.create(endpoint))
+                    .header("Authorization", "Bearer " + apiKey)
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(body))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                return null;
+            }
+
+            DeepSeekResponse parsed = objectMapper.readValue(response.body(), DeepSeekResponse.class);
+            if (parsed == null || parsed.choices == null || parsed.choices.isEmpty()) {
+                return null;
+            }
+
+            DeepSeekChoice choice = parsed.choices.get(0);
+            if (choice == null || choice.message == null) {
+                return null;
+            }
+            return choice.message.content;
+        } catch (IOException ex) {
+            return null;
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            return null;
+        }
+    }
+
+    private String buildUserPrompt(ChatRequest request) {
+        StringBuilder prompt = new StringBuilder();
+        prompt.append("User message: ").append(request.message() == null ? "" : request.message().trim()).append("\n");
+        prompt.append("Scope: ").append(request.scope() == null ? "unknown" : request.scope()).append("\n");
+        prompt.append("If scope is not school_students_only, reject politely.\n");
+
+        if (request.latestAssessment() != null) {
+            AssessmentSnapshot snapshot = request.latestAssessment();
+            prompt.append("Latest assessment:\n");
+            prompt.append("- Grade: ").append(snapshot.grade()).append("\n");
+            prompt.append("- Subject: ").append(snapshot.subject()).append("\n");
+            prompt.append("- Style: ").append(snapshot.style()).append("\n");
+            prompt.append("- Performance: ").append(snapshot.performance()).append("\n");
+            prompt.append("- Quiz: ").append(snapshot.quizScore()).append("\n");
+            prompt.append("- Intent: ").append(snapshot.intent()).append("\n");
+        }
+        return prompt.toString();
     }
 
     private String formatLastRecommendation(AssessmentSnapshot snapshot) {
@@ -143,4 +233,21 @@ public class RecommendationChatService {
     }
 
     private record StudentProfile(String subject, String style, String performance, int quizScore, String intent) {}
+
+    private record DeepSeekRequest(String model, List<DeepSeekMessage> messages, double temperature) {}
+
+    private record DeepSeekMessage(String role, String content) {}
+
+    private static class DeepSeekResponse {
+        public List<DeepSeekChoice> choices;
+    }
+
+    private static class DeepSeekChoice {
+        public DeepSeekMessageContent message;
+    }
+
+    private static class DeepSeekMessageContent {
+        @JsonProperty("content")
+        public String content;
+    }
 }

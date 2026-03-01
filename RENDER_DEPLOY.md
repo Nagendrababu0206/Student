@@ -16,7 +16,11 @@ This project is split into:
 4. Deploy.
 5. After deploy, copy backend URL, for example:
    - `https://student-backend.onrender.com`
-6. Verify health:
+6. Add backend environment variables in Render (`Environment` tab):
+   - `DEEPSEEK_API_KEY` = your DeepSeek API key
+   - Optional: `DEEPSEEK_MODEL` = `deepseek-chat`
+   - Optional: `DEEPSEEK_ENDPOINT` = `https://api.deepseek.com/chat/completions`
+7. Verify health:
    - `https://student-backend.onrender.com/api/health`
 
 ## 2) Configure frontend API URLs
