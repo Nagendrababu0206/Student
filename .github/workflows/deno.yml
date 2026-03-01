@@ -38,5 +38,10 @@ jobs:
       - name: Run linter
         run: deno lint
 
-      - name: Run tests
-        run: deno test -A
+      - name: Run tests (if present)
+        run: |
+          if find . -type f \( -name "*_test.ts" -o -name "*_test.tsx" -o -name "*_test.js" -o -name "*_test.jsx" \) | grep -q .; then
+            deno test -A
+          else
+            echo "No Deno test files found. Skipping tests."
+          fi
