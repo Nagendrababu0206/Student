@@ -46,6 +46,14 @@ const feedbackSignals = {
     text: ""
 };
 
+function normalizeBackendUrl(value) {
+    return String(value || "")
+        .trim()
+        .replace(/\/+$/, "")
+        .replace(/\/api\/health$/i, "")
+        .replace(/\/api$/i, "");
+}
+
 async function getApiBase() {
     if (IS_LOCAL) {
         return LOCAL_API_BASE;
@@ -58,7 +66,7 @@ async function getApiBase() {
         if (response.ok) {
             const payload = await response.json();
             if (payload?.backendUrl) {
-                remoteApiBase = String(payload.backendUrl).replace(/\/+$/, "");
+                remoteApiBase = normalizeBackendUrl(payload.backendUrl);
             }
         }
     } catch {

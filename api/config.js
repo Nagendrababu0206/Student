@@ -1,4 +1,9 @@
 module.exports = async (_req, res) => {
-  const backendUrl = process.env.BACKEND_URL || "";
-  res.status(200).json({ backendUrl });
+  const raw = process.env.BACKEND_URL || "";
+  const normalized = String(raw)
+    .trim()
+    .replace(/\/+$/, "")
+    .replace(/\/api\/health$/i, "")
+    .replace(/\/api$/i, "");
+  res.status(200).json({ backendUrl: normalized });
 };

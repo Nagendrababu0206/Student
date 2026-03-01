@@ -22,7 +22,8 @@ Use your backend URL, for example:
 7. Output Directory: leave empty
 8. Add Environment Variable:
    - Key: `BACKEND_URL`
-   - Value: your Render URL (example: `https://student-backend.onrender.com`)
+   - Value: your Render base URL only (example: `https://student-backend.onrender.com`)
+   - Do not use `/api` or `/api/health` suffix.
 9. Deploy
 
 ## 3) Verify
