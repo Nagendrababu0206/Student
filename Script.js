@@ -1,5 +1,9 @@
-﻿const loginForm = document.getElementById("loginForm");
-const LOGIN_API = "http://localhost:3001/api/login";
+const loginForm = document.getElementById("loginForm");
+const API_BASE =
+    window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+        ? "http://localhost:3001"
+        : "https://YOUR-BACKEND-SERVICE.onrender.com";
+const LOGIN_API = `${API_BASE}/api/login`;
 
 if (loginForm) {
     loginForm.addEventListener("submit", async function (event) {
@@ -39,3 +43,4 @@ if (loginForm) {
         }
     });
 }
+

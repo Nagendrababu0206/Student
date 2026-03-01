@@ -1,4 +1,4 @@
-﻿const welcomeUser = document.getElementById("welcomeUser");
+const welcomeUser = document.getElementById("welcomeUser");
 const logoutBtn = document.getElementById("logoutBtn");
 const studyChart = document.getElementById("studyChart");
 
@@ -37,7 +37,11 @@ const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const maxHours = Math.max(...weeklyData);
 let latestAssessment = null;
 const enrolledResourceIds = new Set();
-const REMOTE_CHAT_ENDPOINT = "http://localhost:3001/api/recommend-chat";
+const API_BASE =
+    window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+        ? "http://localhost:3001"
+        : "https://YOUR-BACKEND-SERVICE.onrender.com";
+const REMOTE_CHAT_ENDPOINT = `${API_BASE}/api/recommend-chat`;
 const THEME_STORAGE_KEY = "eduaiTheme";
 const feedbackSignals = {
     concern: "none",
@@ -591,3 +595,4 @@ logoutBtn.addEventListener("click", () => {
     localStorage.removeItem("eduaiCurrentUser");
     window.location.href = "Frontend.html";
 });
+
