@@ -1,4 +1,4 @@
-﻿const welcomeUser = document.getElementById("welcomeUser");
+const welcomeUser = document.getElementById("welcomeUser");
 const logoutBtn = document.getElementById("logoutBtn");
 const studyChart = document.getElementById("studyChart");
 
@@ -30,7 +30,11 @@ const weeklyData = [1.8, 2.2, 1.4, 2.8, 2.1, 2.6, 1.6];
 const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const maxHours = Math.max(...weeklyData);
 let latestAssessment = null;
-const REMOTE_CHAT_ENDPOINT = "http://localhost:3001/api/recommend-chat";
+const API_BASE =
+    window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+        ? "http://localhost:3001"
+        : "";
+const REMOTE_CHAT_ENDPOINT = `${API_BASE}/api/recommend-chat`;
 
 weeklyData.forEach((hours, index) => {
     const bar = document.createElement("div");
@@ -367,3 +371,4 @@ liveAiToggle.addEventListener("change", () => {
         ? "Mode: Live AI API enabled."
         : "Mode: Local ML chatbot.";
 });
+
