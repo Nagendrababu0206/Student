@@ -30,11 +30,30 @@ const weeklyData = [1.8, 2.2, 1.4, 2.8, 2.1, 2.6, 1.6];
 const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const maxHours = Math.max(...weeklyData);
 let latestAssessment = null;
-const API_BASE =
-    window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-        ? "http://localhost:3001"
-        : "";
-const REMOTE_CHAT_ENDPOINT = `${API_BASE}/api/recommend-chat`;
+const IS_LOCAL = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+const LOCAL_API_BASE = "http://localhost:3001";
+let remoteApiBase = "";
+
+async function getApiBase() {
+    if (IS_LOCAL) {
+        return LOCAL_API_BASE;
+    }
+    if (remoteApiBase) {
+        return remoteApiBase;
+    }
+    try {
+        const response = await fetch("/api/config");
+        if (response.ok) {
+            const payload = await response.json();
+            if (payload?.backendUrl) {
+                remoteApiBase = String(payload.backendUrl).replace(/\/+$/, "");
+            }
+        }
+    } catch {
+        // Keep proxy fallback below.
+    }
+    return remoteApiBase;
+}
 
 weeklyData.forEach((hours, index) => {
     const bar = document.createElement("div");
@@ -300,14 +319,18 @@ async function fetchRemoteChatbotReply(userText) {
         latestAssessment
     };
 
-    const response = await fetch(REMOTE_CHAT_ENDPOINT, {
+    const apiBase = await getApiBase();
+    const remoteChatEndpoint = `${apiBase}/api/recommend-chat`;
+    const response = await fetch(remoteChatEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
     });
 
     if (!response.ok) {
-        throw new Error(`Remote AI request failed (${response.status}).`);
+        const errorPayload = await response.json().catch(() => ({}));
+        const message = errorPayload?.message || errorPayload?.error || "Remote AI request failed";
+        throw new Error(`${message} (${response.status})`);
     }
 
     const data = await response.json();

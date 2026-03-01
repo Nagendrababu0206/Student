@@ -30,5 +30,6 @@ Use your backend URL, for example:
 After deploy:
 - Frontend pages should load from Vercel URL.
 - API calls go to Vercel `/api/*`, then proxy to Render backend.
+- Frontend reads `/api/config` and directly uses `BACKEND_URL` when available.
 - Test:
   - `<your-vercel-url>/api/health`
