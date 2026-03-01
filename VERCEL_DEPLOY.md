@@ -15,14 +15,15 @@ Use your backend URL, for example:
 
 1. Open Vercel dashboard -> `Add New...` -> `Project`
 2. Import this GitHub repository
-3. Framework preset: `Other`
-4. Root Directory: `.`
-5. Build Command: leave empty
-6. Output Directory: leave empty
-7. Add Environment Variable:
+3. Project name: use lowercase letters, digits, `.`, `_`, or `-` only
+4. Framework preset: `Other`
+5. Root Directory: `.`
+6. Build Command: leave empty
+7. Output Directory: leave empty
+8. Add Environment Variable:
    - Key: `BACKEND_URL`
    - Value: your Render URL (example: `https://student-backend.onrender.com`)
-8. Deploy
+9. Deploy
 
 ## 3) Verify
 
@@ -31,4 +32,3 @@ After deploy:
 - API calls go to Vercel `/api/*`, then proxy to Render backend.
 - Test:
   - `<your-vercel-url>/api/health`
-
