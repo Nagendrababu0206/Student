@@ -297,15 +297,67 @@ function getSubjectCourseNames(subject) {
     return ["Foundations of Algebra", "Applied Problem Solving Lab"];
 }
 
-function recommendWithML({ grade, intent, userVector, feedback }) {
+function getTargetDifficulty(performance, quizScore) {
+    if (performance === "low" || quizScore < 60) {
+        return "beginner";
+    }
+    if (performance === "high" || quizScore > 80) {
+        return "advanced";
+    }
+    return "intermediate";
+}
+
+function getCourseMeta(courseName) {
+    if (getSubjectCourseNames("mathematics").includes(courseName)) {
+        return { subject: "mathematics", difficulty: "beginner" };
+    }
+    if (getSubjectCourseNames("programming").includes(courseName)) {
+        return {
+            subject: "programming",
+            difficulty: courseName.includes("Data Structures") ? "intermediate" : "beginner"
+        };
+    }
+    if (getSubjectCourseNames("analytics").includes(courseName)) {
+        return { subject: "analytics", difficulty: "intermediate" };
+    }
+    if (getSubjectCourseNames("ai").includes(courseName)) {
+        return {
+            subject: "ai",
+            difficulty: courseName.includes("Machine Learning") ? "advanced" : "intermediate"
+        };
+    }
+    if (courseName.includes("Certification")) {
+        return { subject: "general", difficulty: "advanced" };
+    }
+    if (courseName.includes("Diagnostic") || courseName.includes("Mentor")) {
+        return { subject: "general", difficulty: "beginner" };
+    }
+    return { subject: "general", difficulty: "intermediate" };
+}
+
+function recommendWithML({ grade, subject, intent, performance, quizScore, userVector, feedback }) {
     const gradeBoost = { school: 1, undergraduate: 0.75, postgraduate: 0.5 };
+    const targetDifficulty = getTargetDifficulty(performance, quizScore);
 
     return courseCatalog
         .map((course) => {
             let score = cosineSimilarity(userVector, course.vector);
+            const meta = getCourseMeta(course.name);
 
             if (course.level === grade) {
                 score += gradeBoost[grade] * 0.2;
+            } else if (course.level === "postgraduate") {
+                score -= 0.18;
+            }
+            if (meta.subject === subject) {
+                score += 0.35;
+            } else if (meta.subject !== "general") {
+                score -= 0.2;
+            }
+            if (meta.difficulty === targetDifficulty) {
+                score += 0.16;
+            } else if (targetDifficulty === "beginner" && meta.difficulty === "advanced") {
+                score -= 0.14;
             }
             if (intent === "Certification preparation" && course.name.includes("Certification")) {
                 score += 0.25;
@@ -350,7 +402,7 @@ function recommendWithML({ grade, intent, userVector, feedback }) {
 
             return {
                 name: course.name,
-                score: Math.max(0, Math.min(score, 1.5))
+                score: Math.max(0, Math.min(score, 1.9))
             };
         })
         .sort((a, b) => b.score - a.score)
@@ -463,7 +515,15 @@ assessmentForm.addEventListener("submit", (event) => {
 
     const intent = detectIntent({ query, certification, performance, quizScore });
     const userVector = buildUserVector({ subject, style, intent, performance, quizScore });
-    const recommendations = recommendWithML({ grade, intent, userVector, feedback: feedbackSignals });
+    const recommendations = recommendWithML({
+        grade,
+        subject,
+        intent,
+        performance,
+        quizScore,
+        userVector,
+        feedback: feedbackSignals
+    });
     latestAssessment = { grade, subject, style, performance, quizScore, intent, recommendations };
 
     intentResult.textContent = `Detected intent: ${intent}`;
@@ -498,7 +558,10 @@ submitFeedbackBtn.addEventListener("click", () => {
         });
         const tunedRecommendations = recommendWithML({
             grade: latestAssessment.grade,
+            subject: latestAssessment.subject,
             intent: latestAssessment.intent,
+            performance: latestAssessment.performance,
+            quizScore: latestAssessment.quizScore,
             userVector,
             feedback: feedbackSignals
         });
@@ -593,7 +656,14 @@ function buildChatResponse(userText) {
 
     const profile = parseChatToSchoolProfile(userText);
     const userVector = buildUserVector(profile);
-    const ranked = recommendWithML({ grade: "school", intent: profile.intent, userVector });
+    const ranked = recommendWithML({
+        grade: "school",
+        subject: profile.subject,
+        intent: profile.intent,
+        performance: profile.performance,
+        quizScore: profile.quizScore,
+        userVector
+    });
     const subjectOnly = profile.subjectExplicit
         ? ranked.filter((item) => getSubjectCourseNames(profile.subject).includes(item.name))
         : ranked;
