@@ -23,17 +23,17 @@
         <section class="metrics" aria-label="Study metrics">
             <article class="metric-card">
                 <h2>Weekly Study Hours</h2>
-                <p class="metric-value" id="weeklyHours">14.5 hrs</p>
-                <p class="metric-sub">+2.1 hrs from last week</p>
+                <p class="metric-value" id="weeklyHours">0.0 hrs</p>
+                <p class="metric-sub">Log time after enrolling to track progress</p>
             </article>
             <article class="metric-card">
                 <h2>Course Completion</h2>
-                <p class="metric-value" id="completionRate">68%</p>
+                <p class="metric-value" id="completionRate">0%</p>
                 <p class="metric-sub">Target: 80%</p>
             </article>
             <article class="metric-card">
                 <h2>Current Streak</h2>
-                <p class="metric-value" id="streakDays">9 days</p>
+                <p class="metric-value" id="streakDays">0 days</p>
                 <p class="metric-sub">Keep momentum going</p>
             </article>
         </section>
@@ -57,15 +57,15 @@
                 <h3>Subject Performance</h3>
                 <div class="progress-group">
                     <label>Mathematics</label>
-                    <div class="progress"><span id="mathProgressBar" style="width: 74%"></span></div>
+                    <div class="progress"><span id="mathProgressBar" style="width: 0%"></span></div>
                 </div>
                 <div class="progress-group">
                     <label>Programming</label>
-                    <div class="progress"><span id="programmingProgressBar" style="width: 82%"></span></div>
+                    <div class="progress"><span id="programmingProgressBar" style="width: 0%"></span></div>
                 </div>
                 <div class="progress-group">
                     <label>Data Analytics</label>
-                    <div class="progress"><span id="analyticsProgressBar" style="width: 65%"></span></div>
+                    <div class="progress"><span id="analyticsProgressBar" style="width: 0%"></span></div>
                 </div>
             </article>
 
@@ -74,7 +74,7 @@
                 <div class="snapshot-grid">
                     <div class="donut" id="goalDonut" aria-label="Course goal progress">
                         <div class="donut-center">
-                            <strong id="goalPercentValue">68%</strong>
+                            <strong id="goalPercentValue">0%</strong>
                             <span>Goal Done</span>
                         </div>
                     </div>
@@ -83,7 +83,7 @@
                             <polyline fill="none" stroke="#93c5fd" stroke-width="3" points="10,95 60,70 110,75 160,42 210,52 260,25 290,18"></polyline>
                             <circle cx="290" cy="18" r="5" fill="#0284c7"></circle>
                         </svg>
-                        <p id="trendMessage">Consistency is improving this week.</p>
+                        <p id="trendMessage">Enroll in a course and log study minutes to start analytics.</p>
                     </div>
                 </div>
             </article>
@@ -227,6 +227,10 @@
                             <option value="programming">Programming</option>
                             <option value="analytics">Data Analytics</option>
                             <option value="ai">Artificial Intelligence</option>
+                            <option value="english">English</option>
+                            <option value="science">Science</option>
+                            <option value="social">Social Learning</option>
+                            <option value="general">General Skills</option>
                         </select>
                     </div>
                 </div>
@@ -237,6 +241,20 @@
                 <ul id="enrolledList" class="output-list">
                     <li>No enrolled resources yet.</li>
                 </ul>
+                <div class="stack-form">
+                    <div class="form-row">
+                        <label for="studyResourceSelect">Log Time For Course</label>
+                        <select id="studyResourceSelect">
+                            <option value="">Select enrolled course</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label for="studyMinutesInput">Minutes Studied</label>
+                        <input id="studyMinutesInput" type="number" min="1" placeholder="e.g. 30">
+                    </div>
+                    <button id="logStudyTime" type="button" class="small-btn">Log Study Time</button>
+                    <p id="studyLogStatus" class="hint">Add study minutes after enrolling to update analyzer.</p>
+                </div>
             </article>
 
             <article class="panel chatbot-panel">

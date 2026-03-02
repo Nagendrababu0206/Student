@@ -20,6 +20,10 @@ const trackProgressBtn = document.getElementById("trackProgress");
 const resourceFilter = document.getElementById("resourceFilter");
 const resourceCatalog = document.getElementById("resourceCatalog");
 const enrolledList = document.getElementById("enrolledList");
+const studyResourceSelect = document.getElementById("studyResourceSelect");
+const studyMinutesInput = document.getElementById("studyMinutesInput");
+const logStudyTimeBtn = document.getElementById("logStudyTime");
+const studyLogStatus = document.getElementById("studyLogStatus");
 const completionRate = document.getElementById("completionRate");
 const weeklyHours = document.getElementById("weeklyHours");
 const streakDays = document.getElementById("streakDays");
@@ -41,14 +45,17 @@ const studentEmail = localStorage.getItem("eduaiCurrentUser") || "student@eduai.
 const studentName = studentEmail.split("@")[0];
 welcomeUser.textContent = studentName;
 
-const weeklyData = [1.8, 2.2, 1.4, 2.8, 2.1, 2.6, 1.6];
+const weeklyData = [0, 0, 0, 0, 0, 0, 0];
 const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 let latestAssessment = null;
 const enrolledResourceIds = new Set();
+const resourceStudyMinutes = {};
+const dailyStudyMinutes = {};
 const IS_LOCAL = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 const LOCAL_API_BASE = "http://localhost:3001";
 let remoteApiBase = "";
 const THEME_STORAGE_KEY = "eduaiTheme";
+const ANALYZER_STORAGE_KEY = "eduaiAnalyzerState";
 const feedbackSignals = {
     concern: "none",
     text: ""
@@ -83,6 +90,60 @@ async function getApiBase() {
     return remoteApiBase;
 }
 
+function formatDateKey(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+}
+
+function readNumber(value) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function saveAnalyzerState() {
+    const payload = {
+        enrolledIds: Array.from(enrolledResourceIds),
+        studyMinutes: resourceStudyMinutes,
+        dailyMinutes: dailyStudyMinutes
+    };
+    localStorage.setItem(ANALYZER_STORAGE_KEY, JSON.stringify(payload));
+}
+
+function loadAnalyzerState() {
+    let payload = null;
+    try {
+        payload = JSON.parse(localStorage.getItem(ANALYZER_STORAGE_KEY) || "{}");
+    } catch {
+        payload = {};
+    }
+
+    const validResourceIds = new Set(resourceLibrary.map((item) => item.id));
+    const enrolledIds = Array.isArray(payload?.enrolledIds) ? payload.enrolledIds : [];
+    enrolledIds.forEach((id) => {
+        if (validResourceIds.has(id)) {
+            enrolledResourceIds.add(id);
+        }
+    });
+
+    Object.entries(payload?.studyMinutes || {}).forEach(([id, minutes]) => {
+        if (validResourceIds.has(id)) {
+            resourceStudyMinutes[id] = Math.max(0, readNumber(minutes));
+        }
+    });
+
+    Object.entries(payload?.dailyMinutes || {}).forEach(([day, minutes]) => {
+        dailyStudyMinutes[day] = Math.max(0, readNumber(minutes));
+    });
+
+    enrolledResourceIds.forEach((id) => {
+        if (resourceStudyMinutes[id] === undefined) {
+            resourceStudyMinutes[id] = 0;
+        }
+    });
+}
+
 const featureIndex = {
     mathematics: 0,
     programming: 1,
@@ -99,29 +160,54 @@ const featureIndex = {
 const courseCatalog = [
     { name: "Foundations of Algebra", vector: [0.95, 0.1, 0.2, 0, 0.3, 0.4, 0.2, 0, 0.6, 0.1], level: "school" },
     { name: "Applied Problem Solving Lab", vector: [0.8, 0.2, 0.3, 0, 0.2, 0.3, 0.7, 0, 0.3, 0.5], level: "undergraduate" },
+    { name: "School Geometry Essentials", vector: [0.92, 0.1, 0.2, 0, 0.5, 0.4, 0.2, 0, 0.7, 0.1], level: "school" },
+    { name: "Fractions and Ratio Mastery", vector: [0.9, 0.1, 0.2, 0, 0.3, 0.5, 0.2, 0, 0.7, 0.1], level: "school" },
     { name: "Programming Fundamentals", vector: [0.1, 0.95, 0.2, 0.1, 0.2, 0.3, 0.7, 0, 0.6, 0.2], level: "school" },
     { name: "Data Structures with Practice", vector: [0, 0.95, 0.3, 0.1, 0.2, 0.3, 0.8, 0, 0.4, 0.6], level: "undergraduate" },
+    { name: "Scratch to Python Bridge", vector: [0.1, 0.9, 0.2, 0.1, 0.3, 0.3, 0.8, 0, 0.7, 0.2], level: "school" },
+    { name: "Coding Logic Drills for School", vector: [0.1, 0.88, 0.2, 0.1, 0.2, 0.4, 0.7, 0, 0.7, 0.2], level: "school" },
     { name: "Statistics Basics", vector: [0.2, 0.2, 0.95, 0.1, 0.2, 0.7, 0.2, 0, 0.6, 0.1], level: "school" },
     { name: "Data Visualization Studio", vector: [0.1, 0.3, 0.9, 0.1, 0.8, 0.2, 0.4, 0, 0.2, 0.5], level: "undergraduate" },
+    { name: "School Data Interpretation Basics", vector: [0.2, 0.2, 0.9, 0.1, 0.6, 0.5, 0.3, 0, 0.7, 0.1], level: "school" },
+    { name: "Probability for Beginners", vector: [0.2, 0.2, 0.88, 0.1, 0.3, 0.6, 0.2, 0, 0.7, 0.1], level: "school" },
     { name: "AI Foundations", vector: [0.1, 0.5, 0.3, 0.95, 0.2, 0.5, 0.4, 0.1, 0.3, 0.5], level: "undergraduate" },
     { name: "Machine Learning Concepts", vector: [0, 0.4, 0.7, 0.95, 0.2, 0.6, 0.5, 0.2, 0.2, 0.7], level: "postgraduate" },
+    { name: "AI Ethics for School Students", vector: [0.1, 0.4, 0.3, 0.85, 0.3, 0.5, 0.3, 0.1, 0.7, 0.2], level: "school" },
+    { name: "Smart Systems Basics", vector: [0.1, 0.45, 0.3, 0.82, 0.2, 0.5, 0.4, 0.1, 0.6, 0.2], level: "school" },
     { name: "Certification Mock Test Series", vector: [0.2, 0.4, 0.5, 0.4, 0.1, 0.4, 0.6, 1, 0.2, 0.8], level: "undergraduate" },
     { name: "Diagnostic Quiz Pack and Gap Remediation", vector: [0.2, 0.2, 0.3, 0.1, 0.1, 0.5, 0.3, 0.2, 1, 0.1], level: "school" },
     { name: "Concept Videos and Visual Notes", vector: [0.2, 0.2, 0.3, 0.2, 1, 0.1, 0.2, 0, 0.4, 0.1], level: "school" },
     { name: "Hands-on Assignments and Weekly Projects", vector: [0.1, 0.4, 0.3, 0.2, 0.1, 0.2, 1, 0, 0.3, 0.5], level: "undergraduate" },
     { name: "Beginner Pace Mentor Sessions", vector: [0.2, 0.2, 0.2, 0.2, 0.2, 0.5, 0.3, 0, 1, 0], level: "school" },
-    { name: "Revision Tracker and Exam Planner", vector: [0.1, 0.3, 0.4, 0.3, 0.1, 0.4, 0.5, 0.9, 0.2, 0.7], level: "undergraduate" }
+    { name: "Revision Tracker and Exam Planner", vector: [0.1, 0.3, 0.4, 0.3, 0.1, 0.4, 0.5, 0.9, 0.2, 0.7], level: "undergraduate" },
+    { name: "School Study Skills Bootcamp", vector: [0.2, 0.2, 0.3, 0.2, 0.2, 0.5, 0.4, 0.3, 0.8, 0.2], level: "school" },
+    { name: "Exam Revision Sprint", vector: [0.2, 0.3, 0.4, 0.2, 0.2, 0.4, 0.4, 0.8, 0.6, 0.3], level: "school" }
 ];
 
 const resourceLibrary = [
     { id: "r1", subject: "mathematics", title: "Algebra Foundations", type: "Video Module", difficulty: "Beginner", description: "Core algebra concepts with worked school-level examples.", youtube: "https://www.youtube.com/watch?v=AUqeb9Z3y3k" },
     { id: "r2", subject: "mathematics", title: "Geometry Practice Pack", type: "Worksheet", difficulty: "Beginner", description: "Shape, angle, and theorem-based practice questions.", youtube: "https://www.youtube.com/watch?v=302eJ3TzJQU" },
+    { id: "r9", subject: "mathematics", title: "Fractions and Ratios Workshop", type: "Video + Worksheet", difficulty: "Beginner", description: "Build confidence in fractions, ratios, and percent problems.", youtube: "https://www.youtube.com/watch?v=6M3uA9Iu4eQ" },
+    { id: "r10", subject: "mathematics", title: "Mensuration Basics", type: "Concept Module", difficulty: "Beginner", description: "Area, perimeter, and volume using school-level examples.", youtube: "https://www.youtube.com/watch?v=8mAITcNt710" },
     { id: "r3", subject: "programming", title: "Python Basics for School", type: "Interactive Lab", difficulty: "Beginner", description: "Variables, loops, and functions through guided coding tasks.", youtube: "https://www.youtube.com/watch?v=rfscVS0vtbw" },
     { id: "r4", subject: "programming", title: "Problem Solving with Pseudocode", type: "Reading + Quiz", difficulty: "Beginner", description: "Step-by-step logic building for coding interviews and exams.", youtube: "https://www.youtube.com/watch?v=azcrPFhaY9k" },
+    { id: "r11", subject: "programming", title: "Scratch to Python Starter Path", type: "Video Series", difficulty: "Beginner", description: "Transition from block coding to beginner Python problems.", youtube: "https://www.youtube.com/watch?v=ERCMXc8x7mc" },
+    { id: "r12", subject: "programming", title: "School Coding Logic Drills", type: "Practice Set", difficulty: "Beginner", description: "Small logic exercises for loops, conditionals, and tracing.", youtube: "https://www.youtube.com/watch?v=pkYVOmU3MgA" },
     { id: "r5", subject: "analytics", title: "Data Charts and Graph Reading", type: "Video + Quiz", difficulty: "Beginner", description: "Interpret school-level charts, tables, and trend questions.", youtube: "https://www.youtube.com/watch?v=9FtHB7V14Fo" },
     { id: "r6", subject: "analytics", title: "Statistics Essentials", type: "Worksheet", difficulty: "Intermediate", description: "Mean, median, mode, and basic probability drills.", youtube: "https://www.youtube.com/watch?v=xxpc-HPKN28" },
+    { id: "r13", subject: "analytics", title: "Probability for School Learners", type: "Video + Practice", difficulty: "Beginner", description: "Simple probability and chance-based classroom questions.", youtube: "https://www.youtube.com/watch?v=SkidyDQuupA" },
+    { id: "r14", subject: "analytics", title: "Data Interpretation Drill Pack", type: "Worksheet", difficulty: "Beginner", description: "Table and graph interpretation with school exam patterns.", youtube: "https://www.youtube.com/watch?v=YBq8hYQ4xC8" },
     { id: "r7", subject: "ai", title: "AI for School Students", type: "Concept Module", difficulty: "Beginner", description: "Simple introduction to AI use cases, ethics, and projects.", youtube: "https://www.youtube.com/watch?v=2ePf9rue1Ao" },
-    { id: "r8", subject: "ai", title: "Machine Learning Basics", type: "Concept + Activity", difficulty: "Intermediate", description: "Basic model concepts with non-technical classroom examples.", youtube: "https://www.youtube.com/watch?v=ukzFI9rgwfU" }
+    { id: "r8", subject: "ai", title: "Machine Learning Basics", type: "Concept + Activity", difficulty: "Intermediate", description: "Basic model concepts with non-technical classroom examples.", youtube: "https://www.youtube.com/watch?v=ukzFI9rgwfU" },
+    { id: "r15", subject: "ai", title: "AI Ethics Classroom Guide", type: "Reading + Case Study", difficulty: "Beginner", description: "Understand fairness, bias, and safe AI usage in schools.", youtube: "https://www.youtube.com/watch?v=ad79nYk2keg" },
+    { id: "r16", subject: "ai", title: "Smart Systems Around Us", type: "Concept Video", difficulty: "Beginner", description: "Examples of AI in phones, maps, and education tools.", youtube: "https://www.youtube.com/watch?v=JMUxmLyrhSk" },
+    {id: "r17", subject: "general", title: "Effective Study Techniques", type: "Video Module", difficulty: "Beginner", description: "Proven strategies for improving focus, retention, and exam performance.", youtube: "https://www.youtube.com/watch?v=IlU2ZDS2sQM" },
+    {id: "r18", subject: "general", title: "Time Management for Students", type: "Video Module", difficulty: "Beginner", description: "Learn how to create study schedules, set priorities, and avoid procrastination.", youtube: "https://www.youtube.com/watch?v=V5-9bLmXlI8" },
+    {id: "r19", subject: "general", title: "Mindfulness and Stress Reduction", type: "Video Module", difficulty: "Beginner", description: "Techniques for managing exam stress and maintaining mental well-being.", youtube: "https://www.youtube.com/watch?v=inpok4MKVLM" },
+    {id: "r20", subject: "social", title: "Peer Study Groups", type: "Community Resource", difficulty: "All Levels", description: "Join or form study groups with classmates to enhance learning through collaboration.", youtube: "https://www.youtube.com/watch?v=H8eQYqz9V3o" },
+    {id: "r21", subject: "english", title: "Academic Writing Skills", type: "Video Module", difficulty: "Beginner", description: "Improve your essay writing and comprehension skills for better performance in language subjects.", youtube: "https://www.youtube.com/watch?v=HAnw168huqA" },
+    {id: "r22", subject: "english", title: "Reading Comprehension Strategies", type: "Video Module", difficulty: "Beginner", description: "Learn techniques to enhance understanding and analysis of reading passages.", youtube: "https://www.youtube.com/watch?v=5MgBikgcWnY" },
+    {id: "r23", subject: "science", title: "Science Concepts Made Simple", type: "Video Module", difficulty: "Beginner", description: "Break down complex science topics into easy-to-understand concepts with real-world examples.", youtube: "https://www.youtube.com/watch?v=ZtL2cHqA8aM" }
 ];
 
 function renderWeeklyChart(data) {
@@ -137,57 +223,93 @@ function renderWeeklyChart(data) {
     });
 }
 
-function updatePerformanceDashboard(subject, performance, quizScore) {
-    const score = Math.max(0, Math.min(100, Number(quizScore) || 0));
-
-    const base = {
-        mathematics: 68,
-        programming: 68,
-        analytics: 68
-    };
-    const performanceDelta = performance === "high" ? 14 : performance === "low" ? -10 : 3;
-
+function mapResourceSubjectToBucket(subject) {
     if (subject === "mathematics") {
-        base.mathematics = score;
-    } else if (subject === "programming") {
-        base.programming = score;
-    } else if (subject === "analytics") {
-        base.analytics = score;
-    } else if (subject === "ai") {
-        base.programming = Math.min(100, score + 6);
-        base.analytics = Math.min(100, score + 4);
+        return "mathematics";
     }
+    if (subject === "programming" || subject === "ai") {
+        return "programming";
+    }
+    return "analytics";
+}
 
-    const mathScore = Math.max(0, Math.min(100, base.mathematics + performanceDelta));
-    const programmingScore = Math.max(0, Math.min(100, base.programming + performanceDelta));
-    const analyticsScore = Math.max(0, Math.min(100, base.analytics + performanceDelta));
+function getCurrentStreakDays() {
+    let streak = 0;
+    const current = new Date();
+    for (let i = 0; i < 365; i += 1) {
+        const key = formatDateKey(current);
+        const minutes = readNumber(dailyStudyMinutes[key]);
+        if (minutes <= 0) {
+            break;
+        }
+        streak += 1;
+        current.setDate(current.getDate() - 1);
+    }
+    return streak;
+}
+
+function getWeeklyHoursSeries() {
+    const series = [];
+    const today = new Date();
+    for (let i = 6; i >= 0; i -= 1) {
+        const day = new Date(today);
+        day.setDate(today.getDate() - i);
+        const key = formatDateKey(day);
+        series.push(Number((readNumber(dailyStudyMinutes[key]) / 60).toFixed(1)));
+    }
+    return series;
+}
+
+function refreshAnalyzerDashboard() {
+    const subjectMinutes = {
+        mathematics: 0,
+        programming: 0,
+        analytics: 0
+    };
+
+    let totalMinutes = 0;
+    Object.entries(resourceStudyMinutes).forEach(([resourceId, minutes]) => {
+        const value = Math.max(0, readNumber(minutes));
+        totalMinutes += value;
+
+        const resource = resourceLibrary.find((item) => item.id === resourceId);
+        if (!resource) {
+            return;
+        }
+        const bucket = mapResourceSubjectToBucket(resource.subject);
+        subjectMinutes[bucket] += value;
+    });
+
+    const completion = Math.min(100, Math.round((totalMinutes / 600) * 100));
+    const mathScore = Math.min(100, Math.round((subjectMinutes.mathematics / 240) * 100));
+    const programmingScore = Math.min(100, Math.round((subjectMinutes.programming / 240) * 100));
+    const analyticsScore = Math.min(100, Math.round((subjectMinutes.analytics / 240) * 100));
+    const weekSeries = getWeeklyHoursSeries();
+    const weeklyTotal = weekSeries.reduce((sum, val) => sum + val, 0);
+    const streak = getCurrentStreakDays();
 
     mathProgressBar.style.width = `${mathScore}%`;
     programmingProgressBar.style.width = `${programmingScore}%`;
     analyticsProgressBar.style.width = `${analyticsScore}%`;
 
-    const completion = Math.round((mathScore + programmingScore + analyticsScore) / 3);
     completionRate.textContent = `${completion}%`;
     goalPercentValue.textContent = `${completion}%`;
     goalDonut.style.background = `conic-gradient(#0284c7 0 ${completion}%, #e2e8f0 ${completion}% 100%)`;
-
-    const avgHoursPerDay = 1.2 + (completion / 100) * 2.0;
-    const generatedWeekly = [0.84, 0.96, 0.9, 1.08, 1, 1.12, 0.86]
-        .map((factor) => Number((avgHoursPerDay * factor).toFixed(1)));
-    const weeklyTotal = generatedWeekly.reduce((sum, val) => sum + val, 0);
-
     weeklyHours.textContent = `${weeklyTotal.toFixed(1)} hrs`;
-    streakDays.textContent = `${Math.max(3, Math.round(completion / 10))} days`;
-    trendMessage.textContent = completion >= 75
-        ? "Consistency is improving this week."
-        : completion >= 55
-            ? "You are progressing steadily. Keep practicing daily."
-            : "Consistency is low. Focus on small daily study goals.";
+    streakDays.textContent = `${streak} days`;
 
-    renderWeeklyChart(generatedWeekly);
+    if (totalMinutes <= 0) {
+        trendMessage.textContent = "Enroll in a course and log study minutes to start analytics.";
+    } else if (completion >= 75) {
+        trendMessage.textContent = "Consistency is improving this week.";
+    } else if (completion >= 45) {
+        trendMessage.textContent = "You are progressing steadily. Keep logging daily study time.";
+    } else {
+        trendMessage.textContent = "Early progress detected. Keep daily study sessions consistent.";
+    }
+
+    renderWeeklyChart(weekSeries);
 }
-
-renderWeeklyChart(weeklyData);
 
 function detectIntent({ query, certification, performance, quizScore }) {
     const normalizedQuery = query.toLowerCase();
@@ -287,15 +409,15 @@ function parseChatToSchoolProfile(message) {
 
 function getSubjectCourseNames(subject) {
     if (subject === "programming") {
-        return ["Programming Fundamentals", "Data Structures with Practice"];
+        return ["Programming Fundamentals", "Data Structures with Practice", "Scratch to Python Bridge", "Coding Logic Drills for School"];
     }
     if (subject === "analytics") {
-        return ["Statistics Basics", "Data Visualization Studio"];
+        return ["Statistics Basics", "Data Visualization Studio", "School Data Interpretation Basics", "Probability for Beginners"];
     }
     if (subject === "ai") {
-        return ["AI Foundations", "Machine Learning Concepts"];
+        return ["AI Foundations", "Machine Learning Concepts", "AI Ethics for School Students", "Smart Systems Basics"];
     }
-    return ["Foundations of Algebra", "Applied Problem Solving Lab"];
+    return ["Foundations of Algebra", "Applied Problem Solving Lab", "School Geometry Essentials", "Fractions and Ratio Mastery"];
 }
 
 function getTargetDifficulty(performance, quizScore) {
@@ -366,6 +488,7 @@ function recommendWithML({ grade, subject, intent, performance, quizScore, userV
             if (intent === "Skill assessment" && course.name.includes("Diagnostic")) {
                 score += 0.2;
             }
+            
 
             // Feedback-aware tuning to improve relevance.
             if (feedback?.concern === "difficulty") {
@@ -532,13 +655,43 @@ function renderEnrolledList() {
 
     if (!enrolledItems.length) {
         enrolledList.innerHTML = "<li>No enrolled resources yet.</li>";
+        renderStudyResourceOptions();
         return;
     }
 
     enrolledItems.forEach((item, index) => {
         const li = document.createElement("li");
-        li.textContent = `${index + 1}. ${item.title} (${item.subject})`;
+        const minutes = Math.max(0, readNumber(resourceStudyMinutes[item.id]));
+        li.textContent = `${index + 1}. ${item.title} (${item.subject}) - ${minutes} min logged`;
         enrolledList.appendChild(li);
+    });
+    renderStudyResourceOptions();
+}
+
+function renderStudyResourceOptions() {
+    if (!studyResourceSelect || !logStudyTimeBtn) {
+        return;
+    }
+
+    const enrolledItems = resourceLibrary.filter((item) => enrolledResourceIds.has(item.id));
+    studyResourceSelect.innerHTML = "";
+
+    if (!enrolledItems.length) {
+        studyResourceSelect.innerHTML = '<option value="">Select enrolled course</option>';
+        studyResourceSelect.disabled = true;
+        logStudyTimeBtn.disabled = true;
+        return;
+    }
+
+    studyResourceSelect.disabled = false;
+    logStudyTimeBtn.disabled = false;
+    enrolledItems.forEach((item, index) => {
+        const option = document.createElement("option");
+        option.value = item.id;
+        option.textContent = index === 0
+            ? `${item.title} (${item.subject})`
+            : `${item.title} (${item.subject})`;
+        studyResourceSelect.appendChild(option);
     });
 }
 
@@ -549,8 +702,12 @@ function enrollResourceById(resourceId, showStatus) {
     }
 
     enrolledResourceIds.add(resourceId);
+    resourceStudyMinutes[resourceId] = 0;
+    saveAnalyzerState();
     renderResourceCatalog();
     renderEnrolledList();
+    renderStudyResourceOptions();
+    refreshAnalyzerDashboard();
 
     if (showStatus) {
         engagementStatus.textContent = `Enrolled in "${resource.title}". Added to your study plan.`;
@@ -590,7 +747,6 @@ assessmentForm.addEventListener("submit", (event) => {
 
     intentResult.textContent = `Detected intent: ${intent}`;
     assessmentSummary.textContent = `Assessment summary: ${grade} learner, subject ${subject}, ${style} style, ${performance} performance, quiz ${quizScore}%.`;
-    updatePerformanceDashboard(subject, performance, quizScore);
     renderRecommendationResults(recommendations);
     renderImprovementSuggestions({ subject, performance, quizScore, intent, recommendations, query });
 });
@@ -644,12 +800,13 @@ submitFeedbackBtn.addEventListener("click", () => {
 
 openResourcesBtn.addEventListener("click", () => {
     const recommendedSubject = latestAssessment?.subject || "all";
-    resourceFilter.value = recommendedSubject;
+    const hasSubjectOption = Array.from(resourceFilter.options).some((option) => option.value === recommendedSubject);
+    resourceFilter.value = hasSubjectOption ? recommendedSubject : "all";
     renderResourceCatalog();
 
-    engagementStatus.textContent = recommendedSubject === "all"
+    engagementStatus.textContent = resourceFilter.value === "all"
         ? "Showing all available resources."
-        : `Resources filtered for ${recommendedSubject}.`;
+        : `Resources filtered for ${resourceFilter.value}.`;
 });
 
 enrollCourseBtn.addEventListener("click", () => {
@@ -690,10 +847,47 @@ trackProgressBtn.addEventListener("click", () => {
         return;
     }
 
-    const computedCompletion = Math.min(100, 50 + enrolledCount * 7);
-    completionRate.textContent = `${computedCompletion}%`;
-    engagementStatus.textContent = `Tracking ${enrolledCount} enrolled resources. Completion updated to ${computedCompletion}%.`;
+    refreshAnalyzerDashboard();
+    const totalMinutes = Object.values(resourceStudyMinutes).reduce((sum, value) => sum + Math.max(0, readNumber(value)), 0);
+    engagementStatus.textContent = `Tracking ${enrolledCount} enrolled resources with ${(totalMinutes / 60).toFixed(1)} total study hours logged.`;
 });
+
+if (logStudyTimeBtn) {
+    logStudyTimeBtn.addEventListener("click", () => {
+        const resourceId = studyResourceSelect?.value || "";
+        const minutes = Math.round(readNumber(studyMinutesInput?.value));
+
+        if (!resourceId || !enrolledResourceIds.has(resourceId)) {
+            if (studyLogStatus) {
+                studyLogStatus.textContent = "Select an enrolled course before logging time.";
+            }
+            return;
+        }
+        if (minutes <= 0) {
+            if (studyLogStatus) {
+                studyLogStatus.textContent = "Enter valid study minutes (greater than 0).";
+            }
+            return;
+        }
+
+        resourceStudyMinutes[resourceId] = Math.max(0, readNumber(resourceStudyMinutes[resourceId])) + minutes;
+        const todayKey = formatDateKey(new Date());
+        dailyStudyMinutes[todayKey] = Math.max(0, readNumber(dailyStudyMinutes[todayKey])) + minutes;
+
+        saveAnalyzerState();
+        renderEnrolledList();
+        refreshAnalyzerDashboard();
+
+        const resource = resourceLibrary.find((item) => item.id === resourceId);
+        if (studyMinutesInput) {
+            studyMinutesInput.value = "";
+        }
+        if (studyLogStatus) {
+            studyLogStatus.textContent = `Logged ${minutes} minutes for ${resource?.title || "selected course"}.`;
+        }
+        engagementStatus.textContent = "Study time logged. Analyzer updated from enrolled-course activity.";
+    });
+}
 
 if (resourceFilter) {
     resourceFilter.addEventListener("change", () => {
@@ -701,8 +895,10 @@ if (resourceFilter) {
     });
 }
 
+loadAnalyzerState();
 renderResourceCatalog();
 renderEnrolledList();
+refreshAnalyzerDashboard();
 
 function addChatMessage(role, text) {
     const row = document.createElement("div");
@@ -858,5 +1054,3 @@ logoutBtn.addEventListener("click", () => {
     localStorage.removeItem("eduaiCurrentUser");
     window.location.href = "Frontend.html";
 });
-
-
