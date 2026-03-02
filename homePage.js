@@ -6,6 +6,7 @@ const assessmentForm = document.getElementById("assessmentForm");
 const intentResult = document.getElementById("intentResult");
 const recommendationList = document.getElementById("recommendationList");
 const mlModelInfo = document.getElementById("mlModelInfo");
+const improvementSuggestionsList = document.getElementById("improvementSuggestions");
 const assessmentSummary = document.getElementById("assessmentSummary");
 const consentCheck = document.getElementById("consentCheck");
 const complianceMsg = document.getElementById("complianceMsg");
@@ -294,6 +295,41 @@ function recommendWithML({ grade, subject, intent, performance, quizScore, userV
         .slice(0, 5);
 }
 
+function renderImprovementSuggestions({ subject, performance, quizScore, intent, recommendations }) {
+    const tips = [];
+    const focusCourse = recommendations?.[0]?.name;
+
+    if (performance === "low" || quizScore < 60) {
+        tips.push(`Start with 30 minutes daily on ${subject} fundamentals and revise mistakes immediately after each practice set.`);
+        tips.push("Take two short quizzes per week and track weak topics to avoid repeating the same errors.");
+    } else if (performance === "high" || quizScore > 80) {
+        tips.push(`Increase challenge level in ${subject} using timed problem sets and advanced concept questions.`);
+        tips.push("Teach one concept weekly to a peer; this improves depth and retention.");
+    } else {
+        tips.push(`Maintain consistent ${subject} practice: 45 minutes study + 15 minutes recap each day.`);
+        tips.push("Use weekly checkpoints to measure progress and adjust focus areas.");
+    }
+
+    if (intent === "Certification preparation") {
+        tips.push("Follow a mock-test cycle: attempt, review wrong answers, then repeat with a stricter time limit.");
+    } else if (intent === "Skill assessment") {
+        tips.push("Prioritize gap-remediation modules and re-attempt the same topic after 48 hours for reinforcement.");
+    }
+
+    if (focusCourse) {
+        tips.push(`Complete the top recommendation first: ${focusCourse}, then move to the next ranked course.`);
+    }
+
+    tips.push("Track weekly improvement by comparing quiz score trends, not one-time scores.");
+
+    improvementSuggestionsList.innerHTML = "";
+    tips.slice(0, 5).forEach((tip) => {
+        const li = document.createElement("li");
+        li.textContent = tip;
+        improvementSuggestionsList.appendChild(li);
+    });
+}
+
 assessmentForm.addEventListener("submit", (event) => {
     event.preventDefault();
 
@@ -336,6 +372,7 @@ assessmentForm.addEventListener("submit", (event) => {
         li.textContent = `${item.name} (${normalizedScore}% match)`;
         recommendationList.appendChild(li);
     });
+    renderImprovementSuggestions({ subject, performance, quizScore, intent, recommendations });
 });
 
 submitFeedbackBtn.addEventListener("click", () => {
