@@ -43,6 +43,12 @@ const chatSend = document.getElementById("chatSend");
 const liveAiToggle = document.getElementById("liveAiToggle");
 const chatApiStatus = document.getElementById("chatApiStatus");
 const themeToggleBtn = document.getElementById("themeToggleBtn");
+const focusDurationInput = document.getElementById("focusDuration");
+const startFocusModeBtn = document.getElementById("startFocusMode");
+const endFocusModeBtn = document.getElementById("endFocusMode");
+const focusTimer = document.getElementById("focusTimer");
+const focusStatus = document.getElementById("focusStatus");
+const distractionCount = document.getElementById("distractionCount");
 
 const studentEmail = localStorage.getItem("eduaiCurrentUser") || "student@eduai.com";
 const studentName = studentEmail.split("@")[0];
@@ -61,10 +67,19 @@ const LOCAL_API_BASE = "http://localhost:3001";
 let remoteApiBase = "";
 const THEME_STORAGE_KEY = "eduaiTheme";
 const ANALYZER_STORAGE_KEY = "eduaiAnalyzerState";
+const FOCUS_STORAGE_KEY = "eduaiFocusState";
 const feedbackSignals = {
     concern: "none",
     text: ""
 };
+const focusSession = {
+    active: false,
+    endAt: 0,
+    durationMinutes: 25,
+    distractions: 0,
+    awayStartedAt: 0
+};
+let focusIntervalId = null;
 
 function normalizeBackendUrl(value) {
     return String(value || "")
@@ -105,6 +120,157 @@ function formatDateKey(date) {
 function readNumber(value) {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatRemainingTime(ms) {
+    const safeMs = Math.max(0, ms);
+    const totalSeconds = Math.floor(safeMs / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function saveFocusState() {
+    const payload = {
+        active: focusSession.active,
+        endAt: focusSession.endAt,
+        durationMinutes: focusSession.durationMinutes,
+        distractions: focusSession.distractions
+    };
+    localStorage.setItem(FOCUS_STORAGE_KEY, JSON.stringify(payload));
+}
+
+function loadFocusState() {
+    let payload = null;
+    try {
+        payload = JSON.parse(localStorage.getItem(FOCUS_STORAGE_KEY) || "{}");
+    } catch {
+        payload = {};
+    }
+
+    focusSession.durationMinutes = Math.max(5, Math.min(180, Math.round(readNumber(payload?.durationMinutes || 25))));
+    focusSession.distractions = Math.max(0, Math.round(readNumber(payload?.distractions || 0)));
+    focusSession.endAt = Math.max(0, readNumber(payload?.endAt || 0));
+    focusSession.active = Boolean(payload?.active) && focusSession.endAt > Date.now();
+    focusSession.awayStartedAt = 0;
+}
+
+function syncFocusUI() {
+    if (!focusTimer || !focusStatus || !distractionCount) {
+        return;
+    }
+
+    const remainingMs = focusSession.active ? Math.max(0, focusSession.endAt - Date.now()) : 0;
+    focusTimer.textContent = `Time left: ${formatRemainingTime(remainingMs)}`;
+    distractionCount.textContent = `Distractions detected: ${focusSession.distractions}`;
+
+    if (startFocusModeBtn) {
+        startFocusModeBtn.disabled = focusSession.active;
+    }
+    if (endFocusModeBtn) {
+        endFocusModeBtn.disabled = !focusSession.active;
+    }
+}
+
+function stopFocusTicker() {
+    if (focusIntervalId) {
+        clearInterval(focusIntervalId);
+        focusIntervalId = null;
+    }
+}
+
+function endFocusSession(message) {
+    const wasActive = focusSession.active;
+    focusSession.active = false;
+    focusSession.endAt = 0;
+    focusSession.awayStartedAt = 0;
+    stopFocusTicker();
+    saveFocusState();
+    syncFocusUI();
+
+    if (message && focusStatus) {
+        focusStatus.textContent = message;
+    } else if (focusStatus && wasActive) {
+        focusStatus.textContent = "Focus session ended.";
+    }
+
+    if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {
+            // Ignore exit-fullscreen errors.
+        });
+    }
+}
+
+function startFocusTicker() {
+    stopFocusTicker();
+    focusIntervalId = setInterval(() => {
+        if (!focusSession.active) {
+            stopFocusTicker();
+            return;
+        }
+
+        const remaining = focusSession.endAt - Date.now();
+        if (remaining <= 0) {
+            endFocusSession(`Session complete. Great work. Distractions during session: ${focusSession.distractions}.`);
+            return;
+        }
+        syncFocusUI();
+    }, 1000);
+}
+
+function startFocusSession() {
+    const duration = Math.max(5, Math.min(180, Math.round(readNumber(focusDurationInput?.value || 25))));
+    focusSession.durationMinutes = duration;
+    focusSession.distractions = 0;
+    focusSession.endAt = Date.now() + duration * 60 * 1000;
+    focusSession.active = true;
+    focusSession.awayStartedAt = 0;
+
+    if (focusDurationInput) {
+        focusDurationInput.value = String(duration);
+    }
+    if (focusStatus) {
+        focusStatus.textContent = `Focus session started for ${duration} minutes. Stay in this app to avoid distraction marks.`;
+    }
+
+    saveFocusState();
+    syncFocusUI();
+    startFocusTicker();
+
+    document.documentElement.requestFullscreen?.().catch(() => {
+        if (focusStatus) {
+            focusStatus.textContent = "Focus session running. Fullscreen not granted; keep this tab active.";
+        }
+    });
+}
+
+function registerFocusDistraction(reason) {
+    if (!focusSession.active) {
+        return;
+    }
+    if (focusSession.awayStartedAt) {
+        return;
+    }
+
+    focusSession.distractions += 1;
+    focusSession.awayStartedAt = Date.now();
+    saveFocusState();
+    syncFocusUI();
+    if (focusStatus) {
+        focusStatus.textContent = `Distraction detected (${reason}). Return to this app and continue your session.`;
+    }
+}
+
+function registerFocusReturn() {
+    if (!focusSession.active || !focusSession.awayStartedAt) {
+        return;
+    }
+    const awaySeconds = Math.round((Date.now() - focusSession.awayStartedAt) / 1000);
+    focusSession.awayStartedAt = 0;
+    saveFocusState();
+    if (focusStatus) {
+        focusStatus.textContent = `Welcome back. You were away for ${awaySeconds}s. Continue focusing.`;
+    }
 }
 
 function saveAnalyzerState() {
@@ -1364,6 +1530,43 @@ if (themeToggleBtn) {
         localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
         applyTheme(nextTheme);
     });
+}
+
+if (startFocusModeBtn) {
+    startFocusModeBtn.addEventListener("click", startFocusSession);
+}
+if (endFocusModeBtn) {
+    endFocusModeBtn.addEventListener("click", () => {
+        endFocusSession("Focus session ended manually.");
+    });
+}
+
+document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+        registerFocusDistraction("tab switch");
+    } else {
+        registerFocusReturn();
+    }
+});
+
+window.addEventListener("blur", () => {
+    registerFocusDistraction("window/app switch");
+});
+
+window.addEventListener("focus", () => {
+    registerFocusReturn();
+});
+
+loadFocusState();
+if (focusDurationInput) {
+    focusDurationInput.value = String(focusSession.durationMinutes);
+}
+syncFocusUI();
+if (focusSession.active) {
+    if (focusStatus) {
+        focusStatus.textContent = `Resumed focus session (${focusSession.durationMinutes} min). Stay on this app.`;
+    }
+    startFocusTicker();
 }
 
 logoutBtn.addEventListener("click", () => {

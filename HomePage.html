@@ -282,6 +282,24 @@
                     <button id="chatSend" type="button">Send</button>
                 </div>
             </article>
+
+            <article class="panel">
+                <h3>Focus Session Mode</h3>
+                <p class="workflow-sub">Minimize distractions: run a timed study session in fullscreen and track app-switch interruptions.</p>
+                <div class="stack-form">
+                    <div class="form-row">
+                        <label for="focusDuration">Session Duration (minutes)</label>
+                        <input id="focusDuration" type="number" min="5" max="180" value="25">
+                    </div>
+                    <div class="engage-actions">
+                        <button id="startFocusMode" type="button" class="small-btn">Start Focus Session</button>
+                        <button id="endFocusMode" type="button" class="small-btn">End Session</button>
+                    </div>
+                    <p id="focusTimer" class="output-box">Time left: 00:00</p>
+                    <p id="focusStatus" class="output-box">Focus mode idle. Start a session to track distractions.</p>
+                    <p id="distractionCount" class="hint">Distractions detected: 0</p>
+                </div>
+            </article>
         </section>
     </main>
 
