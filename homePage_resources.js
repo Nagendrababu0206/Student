@@ -363,18 +363,18 @@ function buildUserVector({ subject, style, intent, performance, quizScore }) {
 
 function parseChatToSchoolProfile(message) {
     const text = message.toLowerCase();
-    let subject = "mathematics";
+    let subject = latestAssessment?.subject || "mathematics";
     let subjectExplicit = false;
-    if (text.includes("program")) {
+    if (text.includes("program") || text.includes("python") || text.includes("coding")) {
         subject = "programming";
         subjectExplicit = true;
-    } else if (text.includes("analytic") || text.includes("data")) {
+    } else if (text.includes("analytic") || text.includes("data") || text.includes("statistics") || text.includes("probability")) {
         subject = "analytics";
         subjectExplicit = true;
-    } else if (text.includes("ai") || text.includes("machine learning")) {
+    } else if (text.includes("ai") || text.includes("machine learning") || text.includes("ml")) {
         subject = "ai";
         subjectExplicit = true;
-    } else if (text.includes("math") || text.includes("algebra")) {
+    } else if (text.includes("math") || text.includes("algebra") || text.includes("geometry") || text.includes("trigonometry")) {
         subject = "mathematics";
         subjectExplicit = true;
     }
@@ -405,6 +405,116 @@ function parseChatToSchoolProfile(message) {
     const intent = detectIntent({ query: text, certification, performance, quizScore });
 
     return { subject, subjectExplicit, style, performance, quizScore, intent };
+}
+
+function detectResourceOnlySubject(text) {
+    if (text.includes("english") || text.includes("writing") || text.includes("comprehension")) {
+        return "english";
+    }
+    if (text.includes("science") || text.includes("physics") || text.includes("chemistry") || text.includes("biology")) {
+        return "science";
+    }
+    if (text.includes("social") || text.includes("group study") || text.includes("peer")) {
+        return "social";
+    }
+    if (text.includes("study skills") || text.includes("time management") || text.includes("stress")) {
+        return "general";
+    }
+    return "";
+}
+
+function buildResourceOnlyResponse(subject) {
+    const options = resourceLibrary.filter((item) => item.subject === subject).slice(0, 2);
+    if (!options.length) {
+        return "I could not find matching resources right now. Try asking with subject and score.";
+    }
+    const names = options.map((item) => item.title).join(" and ");
+    return `I recommend these ${subject} resources: ${names}. Enroll and log study time to improve analyzer results.`;
+}
+
+function applyQuerySignalsToRanked(ranked, queryText) {
+    const text = (queryText || "").toLowerCase();
+    const topicBoosts = {
+        algebra: ["algebra", "foundations"],
+        geometry: ["geometry"],
+        probability: ["probability", "statistics"],
+        statistics: ["statistics", "data"],
+        python: ["python", "programming"],
+        coding: ["coding", "programming"],
+        ethics: ["ethics", "ai"],
+        machine: ["machine learning"]
+    };
+
+    return ranked
+        .map((item) => {
+            let bonus = 0;
+            const name = item.name.toLowerCase();
+
+            Object.entries(topicBoosts).forEach(([keyword, tags]) => {
+                if (text.includes(keyword) && tags.some((tag) => name.includes(tag))) {
+                    bonus += 0.12;
+                }
+            });
+
+            if ((text.includes("beginner") || text.includes("basic") || text.includes("easy")) &&
+                (name.includes("foundations") || name.includes("basics") || name.includes("beginner") || name.includes("diagnostic"))) {
+                bonus += 0.1;
+            }
+
+            if ((text.includes("advanced") || text.includes("hard")) &&
+                (name.includes("machine learning") || name.includes("projects") || name.includes("certification") || name.includes("data structures"))) {
+                bonus += 0.1;
+            }
+
+            return {
+                ...item,
+                score: Math.max(0, Math.min(item.score + bonus, 1.9))
+            };
+        })
+        .sort((a, b) => b.score - a.score);
+}
+
+function applyPerformanceSignalsToRanked(ranked, profile, queryText) {
+    const text = (queryText || "").toLowerCase();
+    const wantsBeginner = profile.performance === "low"
+        || profile.quizScore < 70
+        || text.includes("beginner")
+        || text.includes("basic")
+        || text.includes("easy");
+    const wantsAdvanced = profile.performance === "high"
+        || profile.quizScore > 85
+        || text.includes("advanced")
+        || text.includes("hard");
+
+    return ranked
+        .map((item) => {
+            const name = item.name.toLowerCase();
+            let bonus = 0;
+
+            if (wantsBeginner && (
+                name.includes("foundations")
+                || name.includes("basics")
+                || name.includes("beginner")
+                || name.includes("diagnostic")
+            )) {
+                bonus += 0.12;
+            }
+
+            if (wantsAdvanced && (
+                name.includes("machine learning")
+                || name.includes("projects")
+                || name.includes("data structures")
+                || name.includes("certification")
+            )) {
+                bonus += 0.12;
+            }
+
+            return {
+                ...item,
+                score: Math.max(0, Math.min(item.score + bonus, 1.9))
+            };
+        })
+        .sort((a, b) => b.score - a.score);
 }
 
 function getSubjectCourseNames(subject) {
@@ -921,6 +1031,11 @@ function buildChatResponse(userText) {
         return "I provide school-only recommendations, quick study plans, and next-step actions.";
     }
 
+    const resourceOnlySubject = detectResourceOnlySubject(lower);
+    if (resourceOnlySubject) {
+        return buildResourceOnlyResponse(resourceOnlySubject);
+    }
+
     const profile = parseChatToSchoolProfile(userText);
     const userVector = buildUserVector(profile);
     const ranked = recommendWithML({
@@ -931,17 +1046,22 @@ function buildChatResponse(userText) {
         quizScore: profile.quizScore,
         userVector
     });
+    const queryTuned = applyQuerySignalsToRanked(ranked, lower);
+    const tunedRanked = applyPerformanceSignalsToRanked(queryTuned, profile, lower);
     const subjectOnly = profile.subjectExplicit
-        ? ranked.filter((item) => getSubjectCourseNames(profile.subject).includes(item.name))
-        : ranked;
+        ? tunedRanked.filter((item) => getSubjectCourseNames(profile.subject).includes(item.name))
+        : tunedRanked;
 
     if (!subjectOnly.length) {
         return "I could not rank courses right now. Try asking with subject and score.";
     }
 
-    const topTwo = subjectOnly.slice(0, 2).map((item) => item.name).join(" and ");
+    const topThree = subjectOnly.slice(0, 3).map((item) => item.name).join(", ");
     const match = Math.min(100, Math.round((subjectOnly[0].score / 1.5) * 100));
-    return `For school students, I recommend ${topTwo}. Top match is ${match}%. Intent detected: ${profile.intent}.`;
+    const plan = profile.quizScore < 70
+        ? "Start with 30 minutes daily and focus on fundamentals first."
+        : "Use 45 minutes daily with one timed practice session.";
+    return `For school students, I recommend: ${topThree}. Top match is ${match}%. Intent: ${profile.intent}. ${plan}`;
 }
 
 async function fetchRemoteChatbotReply(userText) {
@@ -987,23 +1107,6 @@ async function handleChatSend() {
         return;
     }
 
-    if (liveAiToggle.checked) {
-        chatApiStatus.textContent = "Mode: DeepSeek API (request in progress).";
-        chatSend.disabled = true;
-        try {
-            const remoteReply = await fetchRemoteChatbotReply(userText);
-            addChatMessage("bot", remoteReply);
-            chatApiStatus.textContent = "Mode: DeepSeek API (connected).";
-        } catch (error) {
-            const fallbackReply = buildChatResponse(userText);
-            addChatMessage("bot", `${fallbackReply} [Fallback: ${error.message}]`);
-            chatApiStatus.textContent = "Mode: DeepSeek API failed, switched to local ML fallback.";
-        } finally {
-            chatSend.disabled = false;
-        }
-        return;
-    }
-
     const response = buildChatResponse(userText);
     addChatMessage("bot", response);
     chatApiStatus.textContent = "Mode: Local ML chatbot.";
@@ -1029,15 +1132,11 @@ chatInput.addEventListener("keydown", (event) => {
     }
 });
 
-liveAiToggle.addEventListener("change", () => {
-    chatApiStatus.textContent = liveAiToggle.checked
-        ? "Mode: DeepSeek API enabled."
-        : "Mode: Local ML chatbot.";
-});
-
-chatApiStatus.textContent = liveAiToggle.checked
-    ? "Mode: DeepSeek API enabled."
-    : "Mode: Local ML chatbot.";
+if (liveAiToggle) {
+    liveAiToggle.checked = false;
+    liveAiToggle.disabled = true;
+}
+chatApiStatus.textContent = "Mode: Local ML chatbot.";
 
 if (themeToggleBtn) {
     const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || "dark";
