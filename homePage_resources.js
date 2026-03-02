@@ -13,6 +13,9 @@ const complianceMsg = document.getElementById("complianceMsg");
 const submitFeedbackBtn = document.getElementById("submitFeedback");
 const feedbackResponse = document.getElementById("feedbackResponse");
 const engagementStatus = document.getElementById("engagementStatus");
+const strongSubject = document.getElementById("strongSubject");
+const weakSubject = document.getElementById("weakSubject");
+const personalizedSuggestions = document.getElementById("personalizedSuggestions");
 
 const openResourcesBtn = document.getElementById("openResources");
 const enrollCourseBtn = document.getElementById("enrollCourse");
@@ -50,7 +53,9 @@ const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 let latestAssessment = null;
 const enrolledResourceIds = new Set();
 const resourceStudyMinutes = {};
+const resourceEnrollmentMeta = {};
 const dailyStudyMinutes = {};
+const assessmentHistory = [];
 const IS_LOCAL = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 const LOCAL_API_BASE = "http://localhost:3001";
 let remoteApiBase = "";
@@ -106,7 +111,9 @@ function saveAnalyzerState() {
     const payload = {
         enrolledIds: Array.from(enrolledResourceIds),
         studyMinutes: resourceStudyMinutes,
-        dailyMinutes: dailyStudyMinutes
+        enrollmentMeta: resourceEnrollmentMeta,
+        dailyMinutes: dailyStudyMinutes,
+        assessments: assessmentHistory
     };
     localStorage.setItem(ANALYZER_STORAGE_KEY, JSON.stringify(payload));
 }
@@ -133,13 +140,40 @@ function loadAnalyzerState() {
         }
     });
 
+    Object.entries(payload?.enrollmentMeta || {}).forEach(([id, meta]) => {
+        if (!validResourceIds.has(id)) {
+            return;
+        }
+        const enrolledAt = String(meta?.enrolledAt || "");
+        if (enrolledAt) {
+            resourceEnrollmentMeta[id] = { enrolledAt };
+        }
+    });
+
     Object.entries(payload?.dailyMinutes || {}).forEach(([day, minutes]) => {
         dailyStudyMinutes[day] = Math.max(0, readNumber(minutes));
+    });
+
+    const rawAssessments = Array.isArray(payload?.assessments) ? payload.assessments : [];
+    rawAssessments.forEach((item) => {
+        if (!item || typeof item.subject !== "string") {
+            return;
+        }
+        assessmentHistory.push({
+            subject: item.subject,
+            quizScore: Math.max(0, Math.min(100, readNumber(item.quizScore))),
+            performance: String(item.performance || "medium"),
+            query: String(item.query || ""),
+            timestamp: String(item.timestamp || "")
+        });
     });
 
     enrolledResourceIds.forEach((id) => {
         if (resourceStudyMinutes[id] === undefined) {
             resourceStudyMinutes[id] = 0;
+        }
+        if (!resourceEnrollmentMeta[id]) {
+            resourceEnrollmentMeta[id] = { enrolledAt: new Date().toISOString() };
         }
     });
 }
@@ -233,6 +267,136 @@ function mapResourceSubjectToBucket(subject) {
     return "analytics";
 }
 
+function normalizeSubjectLabel(subject) {
+    const normalized = String(subject || "").toLowerCase();
+    if (normalized === "ai") {
+        return "programming";
+    }
+    if (normalized === "science" || normalized === "english" || normalized === "social" || normalized === "general") {
+        return "analytics";
+    }
+    if (normalized === "mathematics" || normalized === "programming" || normalized === "analytics") {
+        return normalized;
+    }
+    return "analytics";
+}
+
+function getDisplaySubjectName(subject) {
+    if (subject === "mathematics") {
+        return "Mathematics";
+    }
+    if (subject === "programming") {
+        return "Programming / AI";
+    }
+    return "Analytics / Other";
+}
+
+function getEnrollmentAgeDays(isoDate) {
+    const enrolledTime = Date.parse(isoDate || "");
+    if (!Number.isFinite(enrolledTime)) {
+        return 0;
+    }
+    const diffMs = Date.now() - enrolledTime;
+    return Math.max(0, diffMs / (1000 * 60 * 60 * 24));
+}
+
+function renderPersonalInsights() {
+    if (!strongSubject || !weakSubject || !personalizedSuggestions) {
+        return;
+    }
+
+    const stats = {
+        mathematics: { searches: 0, quizTotal: 0, quizCount: 0, minutes: 0, enrollmentDays: 0 },
+        programming: { searches: 0, quizTotal: 0, quizCount: 0, minutes: 0, enrollmentDays: 0 },
+        analytics: { searches: 0, quizTotal: 0, quizCount: 0, minutes: 0, enrollmentDays: 0 }
+    };
+
+    assessmentHistory.forEach((item) => {
+        const subject = normalizeSubjectLabel(item.subject);
+        stats[subject].searches += 1;
+        stats[subject].quizTotal += Math.max(0, Math.min(100, readNumber(item.quizScore)));
+        stats[subject].quizCount += 1;
+    });
+
+    Object.entries(resourceStudyMinutes).forEach(([resourceId, minutes]) => {
+        const resource = resourceLibrary.find((item) => item.id === resourceId);
+        if (!resource) {
+            return;
+        }
+        const subject = normalizeSubjectLabel(resource.subject);
+        stats[subject].minutes += Math.max(0, readNumber(minutes));
+    });
+
+    enrolledResourceIds.forEach((resourceId) => {
+        const resource = resourceLibrary.find((item) => item.id === resourceId);
+        if (!resource) {
+            return;
+        }
+        const subject = normalizeSubjectLabel(resource.subject);
+        const enrolledAt = resourceEnrollmentMeta[resourceId]?.enrolledAt;
+        stats[subject].enrollmentDays += getEnrollmentAgeDays(enrolledAt);
+    });
+
+    const subjects = Object.keys(stats);
+    const scored = subjects.map((subject) => {
+        const subjectData = stats[subject];
+        const avgQuiz = subjectData.quizCount ? subjectData.quizTotal / subjectData.quizCount : 0;
+        const studyScore = Math.min(100, (subjectData.minutes / 240) * 100);
+        const enrollmentScore = Math.min(100, subjectData.enrollmentDays * 8);
+        const searchScore = Math.min(100, subjectData.searches * 12);
+        const overall = (avgQuiz * 0.45) + (studyScore * 0.30) + (enrollmentScore * 0.15) + (searchScore * 0.10);
+        return { subject, avgQuiz, studyScore, enrollmentScore, searches: subjectData.searches, overall };
+    });
+
+    const hasAnyData = scored.some((item) => item.searches > 0 || item.studyScore > 0 || item.avgQuiz > 0);
+    if (!hasAnyData) {
+        strongSubject.textContent = "Strong subject: pending data.";
+        weakSubject.textContent = "Weak subject: pending data.";
+        personalizedSuggestions.innerHTML = "<li>Run assessments and log study time to generate strong/weak subject insights.</li>";
+        return;
+    }
+
+    const sorted = scored.sort((a, b) => b.overall - a.overall);
+    const strongest = sorted[0];
+    const weakest = sorted[sorted.length - 1];
+
+    strongSubject.textContent = `Strong subject: ${getDisplaySubjectName(strongest.subject)} (score ${Math.round(strongest.overall)}).`;
+    weakSubject.textContent = `Weak subject: ${getDisplaySubjectName(weakest.subject)} (score ${Math.round(weakest.overall)}).`;
+
+    const tips = [];
+    tips.push(`Keep momentum in ${getDisplaySubjectName(strongest.subject)} by adding one advanced session this week.`);
+    tips.push(`Improve ${getDisplaySubjectName(weakest.subject)} with 30-40 minutes daily and one quiz review cycle.`);
+
+    const weakResources = resourceLibrary
+        .filter((item) => normalizeSubjectLabel(item.subject) === weakest.subject)
+        .slice(0, 2)
+        .map((item) => item.title);
+    if (weakResources.length) {
+        tips.push(`For weaker area, prioritize: ${weakResources.join(" and ")}.`);
+    }
+
+    const weakUpskillingCourses = getSubjectCourseNames(weakest.subject).slice(0, 3);
+    if (weakUpskillingCourses.length) {
+        tips.push(`Upskilling plan for ${getDisplaySubjectName(weakest.subject)}: ${weakUpskillingCourses.join(", ")}.`);
+    }
+
+    const weakSearches = stats[weakest.subject].searches;
+    if (weakSearches > 0) {
+        tips.push(`You searched ${getDisplaySubjectName(weakest.subject)} ${weakSearches} times; revisit those topics with short practice blocks.`);
+    }
+
+    if (stats[weakest.subject].enrollmentDays > 0 && stats[weakest.subject].minutes < 120) {
+        tips.push(`You enrolled in ${getDisplaySubjectName(weakest.subject)} resources but logged low time. Add a 20-minute daily session for faster improvement.`);
+    }
+
+    personalizedSuggestions.innerHTML = "";
+    tips.slice(0, 4).forEach((tip) => {
+        const li = document.createElement("li");
+        li.textContent = tip;
+        personalizedSuggestions.appendChild(li);
+    });
+}
+
 function getCurrentStreakDays() {
     let streak = 0;
     const current = new Date();
@@ -309,6 +473,7 @@ function refreshAnalyzerDashboard() {
     }
 
     renderWeeklyChart(weekSeries);
+    renderPersonalInsights();
 }
 
 function detectIntent({ query, certification, performance, quizScore }) {
@@ -515,6 +680,43 @@ function applyPerformanceSignalsToRanked(ranked, profile, queryText) {
             };
         })
         .sort((a, b) => b.score - a.score);
+}
+
+function recordSearchHistoryFromChat(userText) {
+    const text = lowerCaseSafe(userText);
+    const looksLikeLearningQuery = (
+        text.includes("recommend")
+        || text.includes("study")
+        || text.includes("subject")
+        || text.includes("math")
+        || text.includes("program")
+        || text.includes("python")
+        || text.includes("data")
+        || text.includes("analytic")
+        || text.includes("ai")
+        || text.includes("science")
+        || text.includes("english")
+        || text.includes("score")
+        || /\b\d{1,3}\b/.test(text)
+    );
+
+    if (!looksLikeLearningQuery) {
+        return;
+    }
+
+    const profile = parseChatToSchoolProfile(userText);
+    assessmentHistory.push({
+        subject: profile.subject,
+        quizScore: profile.quizScore,
+        performance: profile.performance,
+        query: userText,
+        timestamp: new Date().toISOString()
+    });
+    if (assessmentHistory.length > 100) {
+        assessmentHistory.splice(0, assessmentHistory.length - 100);
+    }
+    saveAnalyzerState();
+    renderPersonalInsights();
 }
 
 function getSubjectCourseNames(subject) {
@@ -813,6 +1015,9 @@ function enrollResourceById(resourceId, showStatus) {
 
     enrolledResourceIds.add(resourceId);
     resourceStudyMinutes[resourceId] = 0;
+    if (!resourceEnrollmentMeta[resourceId]) {
+        resourceEnrollmentMeta[resourceId] = { enrolledAt: new Date().toISOString() };
+    }
     saveAnalyzerState();
     renderResourceCatalog();
     renderEnrolledList();
@@ -854,6 +1059,17 @@ assessmentForm.addEventListener("submit", (event) => {
         feedback: feedbackSignals
     });
     latestAssessment = { grade, subject, style, performance, quizScore, query, intent, recommendations };
+    assessmentHistory.push({
+        subject,
+        quizScore,
+        performance,
+        query,
+        timestamp: new Date().toISOString()
+    });
+    if (assessmentHistory.length > 100) {
+        assessmentHistory.splice(0, assessmentHistory.length - 100);
+    }
+    saveAnalyzerState();
 
     intentResult.textContent = `Detected intent: ${intent}`;
     assessmentSummary.textContent = `Assessment summary: ${grade} learner, subject ${subject}, ${style} style, ${performance} performance, quiz ${quizScore}%.`;
@@ -1099,6 +1315,7 @@ async function handleChatSend() {
     }
 
     addChatMessage("user", userText);
+    recordSearchHistoryFromChat(userText);
     chatInput.value = "";
 
     if (lowerCaseSafe(userText).includes("last recommendation") && latestAssessment) {

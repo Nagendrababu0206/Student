@@ -211,6 +211,12 @@
                     </div>
                     <p id="engagementStatus" class="output-box">Choose an action to continue your learning journey.</p>
                     <p id="assessmentSummary" class="output-box">Assessment summary will appear here.</p>
+                    <h3>Personal Progress Insights</h3>
+                    <p id="strongSubject" class="output-box">Strong subject: pending data.</p>
+                    <p id="weakSubject" class="output-box">Weak subject: pending data.</p>
+                    <ul id="personalizedSuggestions" class="output-list">
+                        <li>Run assessment and log study time to get personalized suggestions.</li>
+                    </ul>
                 </article>
             </div>
 
@@ -261,10 +267,10 @@
                 <h3>AI Recommendation Chatbot (School Students)</h3>
                 <p class="workflow-sub">Ask this bot for school-focused course suggestions, study plans, and next steps.</p>
                 <label class="inline-check">
-                    <input id="liveAiToggle" type="checkbox" checked>
-                    Use DeepSeek AI
+                    <input id="liveAiToggle" type="checkbox">
+                    Local chatbot only
                 </label>
-                <p id="chatApiStatus" class="hint">Mode: DeepSeek API enabled.</p>
+                <p id="chatApiStatus" class="hint">Mode: Local ML chatbot.</p>
                 <div id="chatMessages" class="chat-messages" aria-live="polite">
                     <div class="chat-row bot">
                         <p>Hello! I am your school recommendation assistant. Ask me what to study next.</p>

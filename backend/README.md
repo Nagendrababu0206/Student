@@ -62,7 +62,7 @@ Set these environment variables before running:
 ## Frontend integration
 - `Script.js` -> `POST /api/login`
 - `Signup.js` -> `POST /api/register`
-- `homePage.js` live AI toggle -> `POST /api/recommend-chat`
+- `homePage_resources.js` live AI toggle -> `POST /api/recommend-chat`
 
 ## Notes
 - User data is stored in PostgreSQL.
