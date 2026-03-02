@@ -20,6 +20,14 @@ const resourceFilter = document.getElementById("resourceFilter");
 const resourceCatalog = document.getElementById("resourceCatalog");
 const enrolledList = document.getElementById("enrolledList");
 const completionRate = document.getElementById("completionRate");
+const weeklyHours = document.getElementById("weeklyHours");
+const streakDays = document.getElementById("streakDays");
+const mathProgressBar = document.getElementById("mathProgressBar");
+const programmingProgressBar = document.getElementById("programmingProgressBar");
+const analyticsProgressBar = document.getElementById("analyticsProgressBar");
+const goalDonut = document.getElementById("goalDonut");
+const goalPercentValue = document.getElementById("goalPercentValue");
+const trendMessage = document.getElementById("trendMessage");
 
 const chatMessages = document.getElementById("chatMessages");
 const chatInput = document.getElementById("chatInput");
@@ -34,7 +42,6 @@ welcomeUser.textContent = studentName;
 
 const weeklyData = [1.8, 2.2, 1.4, 2.8, 2.1, 2.6, 1.6];
 const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const maxHours = Math.max(...weeklyData);
 let latestAssessment = null;
 const enrolledResourceIds = new Set();
 const IS_LOCAL = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
@@ -116,14 +123,70 @@ const resourceLibrary = [
     { id: "r8", subject: "ai", title: "Machine Learning Basics", type: "Concept + Activity", difficulty: "Intermediate", description: "Basic model concepts with non-technical classroom examples.", youtube: "https://www.youtube.com/watch?v=ukzFI9rgwfU" }
 ];
 
-weeklyData.forEach((hours, index) => {
-    const bar = document.createElement("div");
-    bar.className = "bar";
-    bar.style.height = `${(hours / maxHours) * 100}%`;
-    bar.dataset.day = dayLabels[index];
-    bar.title = `${dayLabels[index]}: ${hours} hrs`;
-    studyChart.appendChild(bar);
-});
+function renderWeeklyChart(data) {
+    studyChart.innerHTML = "";
+    const maxHours = Math.max(...data, 1);
+    data.forEach((hours, index) => {
+        const bar = document.createElement("div");
+        bar.className = "bar";
+        bar.style.height = `${(hours / maxHours) * 100}%`;
+        bar.dataset.day = dayLabels[index];
+        bar.title = `${dayLabels[index]}: ${hours} hrs`;
+        studyChart.appendChild(bar);
+    });
+}
+
+function updatePerformanceDashboard(subject, performance, quizScore) {
+    const score = Math.max(0, Math.min(100, Number(quizScore) || 0));
+
+    const base = {
+        mathematics: 68,
+        programming: 68,
+        analytics: 68
+    };
+    const performanceDelta = performance === "high" ? 14 : performance === "low" ? -10 : 3;
+
+    if (subject === "mathematics") {
+        base.mathematics = score;
+    } else if (subject === "programming") {
+        base.programming = score;
+    } else if (subject === "analytics") {
+        base.analytics = score;
+    } else if (subject === "ai") {
+        base.programming = Math.min(100, score + 6);
+        base.analytics = Math.min(100, score + 4);
+    }
+
+    const mathScore = Math.max(0, Math.min(100, base.mathematics + performanceDelta));
+    const programmingScore = Math.max(0, Math.min(100, base.programming + performanceDelta));
+    const analyticsScore = Math.max(0, Math.min(100, base.analytics + performanceDelta));
+
+    mathProgressBar.style.width = `${mathScore}%`;
+    programmingProgressBar.style.width = `${programmingScore}%`;
+    analyticsProgressBar.style.width = `${analyticsScore}%`;
+
+    const completion = Math.round((mathScore + programmingScore + analyticsScore) / 3);
+    completionRate.textContent = `${completion}%`;
+    goalPercentValue.textContent = `${completion}%`;
+    goalDonut.style.background = `conic-gradient(#0284c7 0 ${completion}%, #e2e8f0 ${completion}% 100%)`;
+
+    const avgHoursPerDay = 1.2 + (completion / 100) * 2.0;
+    const generatedWeekly = [0.84, 0.96, 0.9, 1.08, 1, 1.12, 0.86]
+        .map((factor) => Number((avgHoursPerDay * factor).toFixed(1)));
+    const weeklyTotal = generatedWeekly.reduce((sum, val) => sum + val, 0);
+
+    weeklyHours.textContent = `${weeklyTotal.toFixed(1)} hrs`;
+    streakDays.textContent = `${Math.max(3, Math.round(completion / 10))} days`;
+    trendMessage.textContent = completion >= 75
+        ? "Consistency is improving this week."
+        : completion >= 55
+            ? "You are progressing steadily. Keep practicing daily."
+            : "Consistency is low. Focus on small daily study goals.";
+
+    renderWeeklyChart(generatedWeekly);
+}
+
+renderWeeklyChart(weeklyData);
 
 function detectIntent({ query, certification, performance, quizScore }) {
     const normalizedQuery = query.toLowerCase();
@@ -385,6 +448,7 @@ assessmentForm.addEventListener("submit", (event) => {
 
     intentResult.textContent = `Detected intent: ${intent}`;
     assessmentSummary.textContent = `Assessment summary: ${grade} learner, subject ${subject}, ${style} style, ${performance} performance, quiz ${quizScore}%.`;
+    updatePerformanceDashboard(subject, performance, quizScore);
     renderRecommendationResults(recommendations);
 });
 

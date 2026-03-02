@@ -57,24 +57,24 @@
                 <h3>Subject Performance</h3>
                 <div class="progress-group">
                     <label>Mathematics</label>
-                    <div class="progress"><span style="width: 74%"></span></div>
+                    <div class="progress"><span id="mathProgressBar" style="width: 74%"></span></div>
                 </div>
                 <div class="progress-group">
                     <label>Programming</label>
-                    <div class="progress"><span style="width: 82%"></span></div>
+                    <div class="progress"><span id="programmingProgressBar" style="width: 82%"></span></div>
                 </div>
                 <div class="progress-group">
                     <label>Data Analytics</label>
-                    <div class="progress"><span style="width: 65%"></span></div>
+                    <div class="progress"><span id="analyticsProgressBar" style="width: 65%"></span></div>
                 </div>
             </article>
 
             <article class="panel graphic-panel">
                 <h3>Learning Snapshot</h3>
                 <div class="snapshot-grid">
-                    <div class="donut" aria-label="Course goal progress">
+                    <div class="donut" id="goalDonut" aria-label="Course goal progress">
                         <div class="donut-center">
-                            <strong>68%</strong>
+                            <strong id="goalPercentValue">68%</strong>
                             <span>Goal Done</span>
                         </div>
                     </div>
@@ -83,7 +83,7 @@
                             <polyline fill="none" stroke="#93c5fd" stroke-width="3" points="10,95 60,70 110,75 160,42 210,52 260,25 290,18"></polyline>
                             <circle cx="290" cy="18" r="5" fill="#0284c7"></circle>
                         </svg>
-                        <p>Consistency is improving this week.</p>
+                        <p id="trendMessage">Consistency is improving this week.</p>
                     </div>
                 </div>
             </article>
