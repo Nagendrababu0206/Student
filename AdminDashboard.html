@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EDUAI | Admin Analytics</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="adminStyle.css">
+</head>
+<body>
+    <header class="admin-topbar">
+        <div>
+            <p class="eyebrow">Admin Console</p>
+            <h1>Learning Intelligence Dashboard</h1>
+        </div>
+        <div class="topbar-actions">
+            <a class="ghost-btn" href="HomePage.html">Student View</a>
+            <button id="refreshAdmin" type="button" class="solid-btn">Refresh Metrics</button>
+        </div>
+    </header>
+
+    <main class="admin-shell">
+        <section class="kpi-grid" aria-label="Key metrics">
+            <article class="kpi-card">
+                <p class="kpi-label">Total Assessments</p>
+                <p class="kpi-value" id="kpiAssessments">0</p>
+            </article>
+            <article class="kpi-card">
+                <p class="kpi-label">Total Enrollments</p>
+                <p class="kpi-value" id="kpiEnrollments">0</p>
+            </article>
+            <article class="kpi-card">
+                <p class="kpi-label">Study Hours Logged</p>
+                <p class="kpi-value" id="kpiHours">0.0h</p>
+            </article>
+            <article class="kpi-card">
+                <p class="kpi-label">Avg Quiz Score</p>
+                <p class="kpi-value" id="kpiAvgQuiz">0%</p>
+            </article>
+        </section>
+
+        <section class="viz-grid">
+            <article class="panel">
+                <h2>Engagement Meter</h2>
+                <svg id="engagementDonut" viewBox="0 0 220 220" class="donut-svg" role="img" aria-label="Engagement donut chart">
+                    <defs>
+                        <linearGradient id="donutGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#22d3ee"></stop>
+                            <stop offset="100%" stop-color="#f59e0b"></stop>
+                        </linearGradient>
+                    </defs>
+                    <circle cx="110" cy="110" r="78" class="donut-track"></circle>
+                    <circle id="donutProgress" cx="110" cy="110" r="78" class="donut-progress"></circle>
+                    <text x="110" y="106" text-anchor="middle" id="donutPercent" class="donut-text">0%</text>
+                    <text x="110" y="130" text-anchor="middle" class="donut-sub">Goal Coverage</text>
+                </svg>
+                <p class="hint" id="engagementHint">Based on cumulative enrolled-course study time.</p>
+            </article>
+
+            <article class="panel">
+                <h2>Subject Demand</h2>
+                <svg id="subjectBars" viewBox="0 0 540 260" class="bar-svg" role="img" aria-label="Subject demand bar chart"></svg>
+            </article>
+
+            <article class="panel">
+                <h2>14-Day Activity Trend</h2>
+                <svg id="activityTrend" viewBox="0 0 540 220" class="line-svg" role="img" aria-label="Study activity line chart"></svg>
+            </article>
+
+            <article class="panel">
+                <h2>Weak Subject Distribution</h2>
+                <svg id="weakSubjectRadar" viewBox="0 0 360 280" class="radar-svg" role="img" aria-label="Weak subject distribution graphic"></svg>
+            </article>
+        </section>
+
+        <section class="panel" aria-label="Recent analytics events">
+            <h2>Recent Assessment Events</h2>
+            <div id="eventsList" class="event-list">
+                <p class="hint">No events available yet.</p>
+            </div>
+        </section>
+    </main>
+
+    <script src="adminDashboard.js"></script>
+</body>
+</html>
