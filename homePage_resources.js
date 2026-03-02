@@ -475,9 +475,9 @@ function renderPersonalInsights() {
     }
 
     const stats = {
-        mathematics: { searches: 0, quizTotal: 0, quizCount: 0, minutes: 0, enrollmentDays: 0 },
-        programming: { searches: 0, quizTotal: 0, quizCount: 0, minutes: 0, enrollmentDays: 0 },
-        analytics: { searches: 0, quizTotal: 0, quizCount: 0, minutes: 0, enrollmentDays: 0 }
+        mathematics: { searches: 0, quizTotal: 0, quizCount: 0, performanceTotal: 0, performanceCount: 0, minutes: 0, enrollmentDays: 0 },
+        programming: { searches: 0, quizTotal: 0, quizCount: 0, performanceTotal: 0, performanceCount: 0, minutes: 0, enrollmentDays: 0 },
+        analytics: { searches: 0, quizTotal: 0, quizCount: 0, performanceTotal: 0, performanceCount: 0, minutes: 0, enrollmentDays: 0 }
     };
 
     assessmentHistory.forEach((item) => {
@@ -485,6 +485,10 @@ function renderPersonalInsights() {
         stats[subject].searches += 1;
         stats[subject].quizTotal += Math.max(0, Math.min(100, readNumber(item.quizScore)));
         stats[subject].quizCount += 1;
+        const performanceLabel = String(item.performance || "medium").toLowerCase();
+        const performanceScore = performanceLabel === "high" ? 92 : performanceLabel === "low" ? 45 : 70;
+        stats[subject].performanceTotal += performanceScore;
+        stats[subject].performanceCount += 1;
     });
 
     Object.entries(resourceStudyMinutes).forEach(([resourceId, minutes]) => {
@@ -510,11 +514,12 @@ function renderPersonalInsights() {
     const scored = subjects.map((subject) => {
         const subjectData = stats[subject];
         const avgQuiz = subjectData.quizCount ? subjectData.quizTotal / subjectData.quizCount : 0;
+        const avgPerformance = subjectData.performanceCount ? subjectData.performanceTotal / subjectData.performanceCount : 0;
         const studyScore = Math.min(100, (subjectData.minutes / 240) * 100);
         const enrollmentScore = Math.min(100, subjectData.enrollmentDays * 8);
         const searchScore = Math.min(100, subjectData.searches * 12);
-        const overall = (avgQuiz * 0.45) + (studyScore * 0.30) + (enrollmentScore * 0.15) + (searchScore * 0.10);
-        return { subject, avgQuiz, studyScore, enrollmentScore, searches: subjectData.searches, overall };
+        const overall = (avgQuiz * 0.35) + (avgPerformance * 0.25) + (studyScore * 0.20) + (enrollmentScore * 0.10) + (searchScore * 0.10);
+        return { subject, avgQuiz, avgPerformance, studyScore, enrollmentScore, searches: subjectData.searches, overall };
     });
 
     const hasAnyData = scored.some((item) => item.searches > 0 || item.studyScore > 0 || item.avgQuiz > 0);
