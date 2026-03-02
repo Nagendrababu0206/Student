@@ -407,7 +407,10 @@ const resourceLibrary = [
     {id: "r20", subject: "social", title: "Peer Study Groups", type: "Community Resource", difficulty: "All Levels", description: "Join or form study groups with classmates to enhance learning through collaboration.", youtube: "https://www.youtube.com/watch?v=H8eQYqz9V3o" },
     {id: "r21", subject: "english", title: "Academic Writing Skills", type: "Video Module", difficulty: "Beginner", description: "Improve your essay writing and comprehension skills for better performance in language subjects.", youtube: "https://www.youtube.com/watch?v=HAnw168huqA" },
     {id: "r22", subject: "english", title: "Reading Comprehension Strategies", type: "Video Module", difficulty: "Beginner", description: "Learn techniques to enhance understanding and analysis of reading passages.", youtube: "https://www.youtube.com/watch?v=5MgBikgcWnY" },
-    {id: "r23", subject: "science", title: "Science Concepts Made Simple", type: "Video Module", difficulty: "Beginner", description: "Break down complex science topics into easy-to-understand concepts with real-world examples.", youtube: "https://www.youtube.com/watch?v=ZtL2cHqA8aM" }
+    {id: "r23", subject: "science", title: "Science Concepts Made Simple", type: "Video Module", difficulty: "Beginner", description: "Break down complex science topics into easy-to-understand concepts with real-world examples.", youtube: "https://www.youtube.com/watch?v=ZtL2cHqA8aM" },
+    {id: "r24", subject: "certification", title: "School Python Certification Track", type: "Certification Frame", difficulty: "Intermediate", description: "Structured certification prep for Python basics with assignments and checkpoints.", youtube: "https://www.youtube.com/watch?v=rfscVS0vtbw", embed: "https://www.youtube.com/embed/rfscVS0vtbw" },
+    {id: "r25", subject: "certification", title: "Data Analytics Certification Starter", type: "Certification Frame", difficulty: "Intermediate", description: "Certification-oriented analytics learning path focused on statistics and interpretation.", youtube: "https://www.youtube.com/watch?v=xxpc-HPKN28", embed: "https://www.youtube.com/embed/xxpc-HPKN28" },
+    {id: "r26", subject: "certification", title: "AI Fundamentals Certification Prep", type: "Certification Frame", difficulty: "Intermediate", description: "Frame-based certification prep for AI foundations, ethics, and real examples.", youtube: "https://www.youtube.com/watch?v=2ePf9rue1Ao", embed: "https://www.youtube.com/embed/2ePf9rue1Ao" }
 ];
 
 function renderWeeklyChart(data) {
@@ -1105,10 +1108,14 @@ function renderResourceCatalog() {
     visibleResources.forEach((item) => {
         const card = document.createElement("article");
         card.className = "resource-card";
+        const certificationFrame = item.embed
+            ? `<div class="resource-frame-wrap"><iframe class="resource-frame" src="${item.embed}" title="${item.title}" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>`
+            : "";
         card.innerHTML = `
             <h4>${item.title}</h4>
             <p class="resource-meta">${item.type} | ${item.difficulty}</p>
             <p class="resource-desc">${item.description}</p>
+            ${certificationFrame}
             <p class="resource-meta"><a href="${item.youtube}" target="_blank" rel="noopener noreferrer">Watch Practice Video</a></p>
             <button type="button" data-resource-id="${item.id}">${enrolledResourceIds.has(item.id) ? "Enrolled" : "Enroll Resource"}</button>
         `;

@@ -424,6 +424,21 @@ button:hover {
     background: #0284c7;
 }
 
+.resource-frame-wrap {
+    margin: 8px 0 6px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #0f172a;
+}
+
+.resource-frame {
+    display: block;
+    width: 100%;
+    min-height: 170px;
+    border: 0;
+}
+
 .sub-heading {
     margin: 8px 0;
     font-size: 0.96rem;
@@ -546,6 +561,11 @@ body.dark-theme .resource-card h4 {
 
 body.dark-theme .resource-meta a {
     color: #7dd3fc;
+}
+
+body.dark-theme .resource-frame-wrap {
+    border-color: #243041;
+    background: #020617;
 }
 
 body.dark-theme .output-box,
