@@ -423,9 +423,31 @@ function renderRecommendationResults(recommendations) {
     });
 }
 
-function renderImprovementSuggestions({ subject, performance, quizScore, intent, recommendations }) {
+function detectWeakTopics(subject, query, performance, quizScore) {
+    const topicMap = {
+        mathematics: ["algebra", "geometry", "trigonometry", "calculus", "statistics"],
+        programming: ["loops", "arrays", "functions", "recursion", "data structures"],
+        analytics: ["statistics", "charts", "visualization", "probability", "data interpretation"],
+        ai: ["machine learning", "model training", "ethics", "neural networks", "data preprocessing"]
+    };
+
+    const lowerQuery = (query || "").toLowerCase();
+    const subjectTopics = topicMap[subject] || [];
+    const mentioned = subjectTopics.filter((topic) => lowerQuery.includes(topic));
+
+    if (mentioned.length) {
+        return mentioned.slice(0, 2);
+    }
+    if (performance === "low" || quizScore < 60) {
+        return subjectTopics.slice(0, 2);
+    }
+    return subjectTopics.slice(1, 3);
+}
+
+function renderImprovementSuggestions({ subject, performance, quizScore, intent, recommendations, query }) {
     const tips = [];
     const focusCourse = recommendations?.[0]?.name;
+    const weakTopics = detectWeakTopics(subject, query, performance, quizScore);
 
     if (performance === "low" || quizScore < 60) {
         tips.push(`Start with 30 minutes daily on ${subject} fundamentals and revise mistakes immediately after each practice set.`);
@@ -446,6 +468,10 @@ function renderImprovementSuggestions({ subject, performance, quizScore, intent,
 
     if (focusCourse) {
         tips.push(`Complete the top recommendation first: ${focusCourse}, then move to the next ranked course.`);
+    }
+    if (weakTopics.length) {
+        tips.push(`Prioritize weak topics this week: ${weakTopics.join(", ")}.`);
+        tips.push(`For each weak topic, practice 10 questions and note at least one mistake pattern.`);
     }
 
     tips.push("Track weekly improvement by comparing quiz score trends, not one-time scores.");
@@ -560,13 +586,13 @@ assessmentForm.addEventListener("submit", (event) => {
         userVector,
         feedback: feedbackSignals
     });
-    latestAssessment = { grade, subject, style, performance, quizScore, intent, recommendations };
+    latestAssessment = { grade, subject, style, performance, quizScore, query, intent, recommendations };
 
     intentResult.textContent = `Detected intent: ${intent}`;
     assessmentSummary.textContent = `Assessment summary: ${grade} learner, subject ${subject}, ${style} style, ${performance} performance, quiz ${quizScore}%.`;
     updatePerformanceDashboard(subject, performance, quizScore);
     renderRecommendationResults(recommendations);
-    renderImprovementSuggestions({ subject, performance, quizScore, intent, recommendations });
+    renderImprovementSuggestions({ subject, performance, quizScore, intent, recommendations, query });
 });
 
 submitFeedbackBtn.addEventListener("click", () => {
@@ -609,7 +635,8 @@ submitFeedbackBtn.addEventListener("click", () => {
             performance: latestAssessment.performance,
             quizScore: latestAssessment.quizScore,
             intent: latestAssessment.intent,
-            recommendations: tunedRecommendations
+            recommendations: tunedRecommendations,
+            query: latestAssessment.query
         });
         engagementStatus.textContent = "Recommendations were re-ranked using your feedback for better accuracy.";
     }
