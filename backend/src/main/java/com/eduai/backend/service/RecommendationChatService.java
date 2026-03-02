@@ -25,7 +25,8 @@ public class RecommendationChatService {
     private static final String SYSTEM_PROMPT =
             "You are EDUAI assistant for school students only. " +
             "Give concise, practical study guidance and recommendations. " +
-            "If user asks outside school scope, politely refuse and redirect to school-level guidance.";
+            "If user asks outside school scope, politely refuse and redirect to school-level guidance. " +
+            "When user asks for a specific subject, recommend only courses for that subject.";
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final HttpClient httpClient = HttpClient.newHttpClient();
@@ -162,6 +163,11 @@ public class RecommendationChatService {
             prompt.append("- Quiz: ").append(snapshot.quizScore()).append("\n");
             prompt.append("- Intent: ").append(snapshot.intent()).append("\n");
         }
+        StudentProfile profile = parseProfile((request.message() == null ? "" : request.message()).toLowerCase(Locale.ROOT));
+        if (profile.subjectExplicit()) {
+            prompt.append("User explicitly requested subject: ").append(profile.subject()).append("\n");
+            prompt.append("Return only ").append(profile.subject()).append(" course suggestions.\n");
+        }
         return prompt.toString();
     }
 
@@ -204,7 +210,17 @@ public class RecommendationChatService {
 
         int quiz = extractQuizScore(text);
         String intent = detectIntent(text, performance, quiz);
-        return new StudentProfile(subject, style, performance, quiz, intent);
+        return new StudentProfile(subject, subjectExplicit(text), style, performance, quiz, intent);
+    }
+
+    private boolean subjectExplicit(String text) {
+        return text.contains("math")
+                || text.contains("algebra")
+                || text.contains("program")
+                || text.contains("analytic")
+                || text.contains("data")
+                || text.contains("ai")
+                || text.contains("machine learning");
     }
 
     private int extractQuizScore(String text) {
@@ -234,6 +250,10 @@ public class RecommendationChatService {
     }
 
     private List<String> rankRecommendations(StudentProfile profile) {
+        if (profile.subjectExplicit()) {
+            return getSubjectCourses(profile.subject());
+        }
+
         List<String> recs = new ArrayList<>();
 
         switch (profile.subject) {
@@ -272,7 +292,16 @@ public class RecommendationChatService {
         return recs.stream().distinct().limit(5).toList();
     }
 
-    private record StudentProfile(String subject, String style, String performance, int quizScore, String intent) {}
+    private List<String> getSubjectCourses(String subject) {
+        return switch (subject) {
+            case "programming" -> List.of("Programming Fundamentals", "Data Structures with Practice");
+            case "analytics" -> List.of("Statistics Basics", "Data Visualization Studio");
+            case "ai" -> List.of("AI Foundations", "Machine Learning Concepts");
+            default -> List.of("Foundations of Algebra", "Applied Problem Solving Lab");
+        };
+    }
+
+    private record StudentProfile(String subject, boolean subjectExplicit, String style, String performance, int quizScore, String intent) {}
 
     private record DeepSeekRequest(String model, List<DeepSeekMessage> messages, double temperature) {}
 

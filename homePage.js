@@ -160,12 +160,19 @@ function buildUserVector({ subject, style, intent, performance, quizScore }) {
 function parseChatToSchoolProfile(message) {
     const text = message.toLowerCase();
     let subject = "mathematics";
+    let subjectExplicit = false;
     if (text.includes("program")) {
         subject = "programming";
+        subjectExplicit = true;
     } else if (text.includes("analytic") || text.includes("data")) {
         subject = "analytics";
+        subjectExplicit = true;
     } else if (text.includes("ai") || text.includes("machine learning")) {
         subject = "ai";
+        subjectExplicit = true;
+    } else if (text.includes("math") || text.includes("algebra")) {
+        subject = "mathematics";
+        subjectExplicit = true;
     }
 
     let style = "mixed";
@@ -193,7 +200,20 @@ function parseChatToSchoolProfile(message) {
     const certification = text.includes("exam") || text.includes("certification");
     const intent = detectIntent({ query: text, certification, performance, quizScore });
 
-    return { subject, style, performance, quizScore, intent };
+    return { subject, subjectExplicit, style, performance, quizScore, intent };
+}
+
+function getSubjectCourseNames(subject) {
+    if (subject === "programming") {
+        return ["Programming Fundamentals", "Data Structures with Practice"];
+    }
+    if (subject === "analytics") {
+        return ["Statistics Basics", "Data Visualization Studio"];
+    }
+    if (subject === "ai") {
+        return ["AI Foundations", "Machine Learning Concepts"];
+    }
+    return ["Foundations of Algebra", "Applied Problem Solving Lab"];
 }
 
 function recommendWithML({ grade, intent, userVector }) {
@@ -310,13 +330,16 @@ function buildChatResponse(userText) {
     const profile = parseChatToSchoolProfile(userText);
     const userVector = buildUserVector(profile);
     const ranked = recommendWithML({ grade: "school", intent: profile.intent, userVector });
+    const subjectOnly = profile.subjectExplicit
+        ? ranked.filter((item) => getSubjectCourseNames(profile.subject).includes(item.name))
+        : ranked;
 
-    if (!ranked.length) {
+    if (!subjectOnly.length) {
         return "I could not rank courses right now. Try asking with subject and score.";
     }
 
-    const topTwo = ranked.slice(0, 2).map((item) => item.name).join(" and ");
-    const match = Math.min(100, Math.round((ranked[0].score / 1.5) * 100));
+    const topTwo = subjectOnly.slice(0, 2).map((item) => item.name).join(" and ");
+    const match = Math.min(100, Math.round((subjectOnly[0].score / 1.5) * 100));
     return `For school students, I recommend ${topTwo}. Top match is ${match}%. Intent detected: ${profile.intent}.`;
 }
 
