@@ -36,6 +36,8 @@ const analyticsProgressBar = document.getElementById("analyticsProgressBar");
 const goalDonut = document.getElementById("goalDonut");
 const goalPercentValue = document.getElementById("goalPercentValue");
 const trendMessage = document.getElementById("trendMessage");
+const latestAssessmentMarks = document.getElementById("latestAssessmentMarks");
+const subjectMarksSummary = document.getElementById("subjectMarksSummary");
 
 const chatMessages = document.getElementById("chatMessages");
 const chatInput = document.getElementById("chatInput");
@@ -333,6 +335,7 @@ function loadAnalyzerState() {
             subject: item.subject,
             quizScore: Math.max(0, Math.min(100, readNumber(item.quizScore))),
             assignmentMarks: Math.max(0, Math.min(100, readNumber(item.assignmentMarks ?? item.quizScore))),
+            points: Math.max(0, Math.min(100, readNumber(item.points ?? calculateAcademicScore(item.quizScore, item.assignmentMarks ?? item.quizScore)))),
             performance: String(item.performance || "medium"),
             query: String(item.query || ""),
             timestamp: String(item.timestamp || "")
@@ -361,6 +364,17 @@ const featureIndex = {
     lowSupport: 8,
     advanced: 9
 };
+
+function normalizeSubjectForModel(subject) {
+    const value = String(subject || "").toLowerCase();
+    if (value === "physics" || value === "chemistry" || value === "science") {
+        return "analytics";
+    }
+    if (value === "english" || value === "social") {
+        return "mathematics";
+    }
+    return value;
+}
 
 const courseCatalog = [
     { name: "Foundations of Algebra", vector: [0.95, 0.1, 0.2, 0, 0.3, 0.4, 0.2, 0, 0.6, 0.1], level: "school" },
@@ -446,6 +460,9 @@ function normalizeSubjectLabel(subject) {
     if (normalized === "ai") {
         return "programming";
     }
+    if (normalized === "physics" || normalized === "chemistry") {
+        return "analytics";
+    }
     if (normalized === "science" || normalized === "english" || normalized === "social" || normalized === "general") {
         return "analytics";
     }
@@ -465,6 +482,62 @@ function getDisplaySubjectName(subject) {
     return "Analytics / Other";
 }
 
+function normalizeSubjectForDashboard(subject) {
+    const normalized = String(subject || "").toLowerCase();
+    if (normalized === "physics" || normalized === "chemistry") {
+        return "science";
+    }
+    return normalized || "general";
+}
+
+function renderAssessmentMarksOverview() {
+    if (!latestAssessmentMarks || !subjectMarksSummary) {
+        return;
+    }
+
+    if (!assessmentHistory.length) {
+        latestAssessmentMarks.textContent = "Latest marks: pending assessment.";
+        subjectMarksSummary.innerHTML = "<li>No assessment scores available yet.</li>";
+        return;
+    }
+
+    const latest = assessmentHistory[assessmentHistory.length - 1];
+    const latestQuiz = Math.max(0, Math.min(100, readNumber(latest.quizScore)));
+    const latestAssignment = Math.max(0, Math.min(100, readNumber(latest.assignmentMarks ?? latest.quizScore)));
+    const latestAcademic = calculateAcademicScore(latestQuiz, latestAssignment);
+    const latestSubject = normalizeSubjectForDashboard(latest.subject);
+    latestAssessmentMarks.textContent = `Latest marks: ${latestSubject} | Quiz ${Math.round(latestQuiz)}% | Assignment ${Math.round(latestAssignment)}% | Academic ${Math.round(latestAcademic)}%.`;
+
+    const bySubject = {};
+    assessmentHistory.forEach((item) => {
+        const subjectKey = normalizeSubjectForDashboard(item.subject);
+        if (!bySubject[subjectKey]) {
+            bySubject[subjectKey] = { quizTotal: 0, assignmentTotal: 0, count: 0 };
+        }
+        const quiz = Math.max(0, Math.min(100, readNumber(item.quizScore)));
+        const assignment = Math.max(0, Math.min(100, readNumber(item.assignmentMarks ?? item.quizScore)));
+        bySubject[subjectKey].quizTotal += quiz;
+        bySubject[subjectKey].assignmentTotal += assignment;
+        bySubject[subjectKey].count += 1;
+    });
+
+    const rows = Object.entries(bySubject)
+        .map(([subject, stats]) => {
+            const avgQuiz = stats.quizTotal / stats.count;
+            const avgAssignment = stats.assignmentTotal / stats.count;
+            const avgAcademic = calculateAcademicScore(avgQuiz, avgAssignment);
+            return { subject, avgQuiz, avgAssignment, avgAcademic, count: stats.count };
+        })
+        .sort((a, b) => b.avgAcademic - a.avgAcademic);
+
+    subjectMarksSummary.innerHTML = "";
+    rows.forEach((row) => {
+        const li = document.createElement("li");
+        li.textContent = `${row.subject}: Quiz ${Math.round(row.avgQuiz)}%, Assignment ${Math.round(row.avgAssignment)}%, Academic ${Math.round(row.avgAcademic)}% (${row.count} attempts)`;
+        subjectMarksSummary.appendChild(li);
+    });
+}
+
 function getEnrollmentAgeDays(isoDate) {
     const enrolledTime = Date.parse(isoDate || "");
     if (!Number.isFinite(enrolledTime)) {
@@ -480,16 +553,23 @@ function renderPersonalInsights() {
     }
 
     const stats = {
-        mathematics: { searches: 0, quizTotal: 0, quizCount: 0, performanceTotal: 0, performanceCount: 0, minutes: 0, enrollmentDays: 0 },
-        programming: { searches: 0, quizTotal: 0, quizCount: 0, performanceTotal: 0, performanceCount: 0, minutes: 0, enrollmentDays: 0 },
-        analytics: { searches: 0, quizTotal: 0, quizCount: 0, performanceTotal: 0, performanceCount: 0, minutes: 0, enrollmentDays: 0 }
+        mathematics: { searches: 0, quizTotal: 0, quizCount: 0, assignmentTotal: 0, assignmentCount: 0, pointsTotal: 0, pointsCount: 0, performanceTotal: 0, performanceCount: 0, minutes: 0, enrollmentDays: 0 },
+        programming: { searches: 0, quizTotal: 0, quizCount: 0, assignmentTotal: 0, assignmentCount: 0, pointsTotal: 0, pointsCount: 0, performanceTotal: 0, performanceCount: 0, minutes: 0, enrollmentDays: 0 },
+        analytics: { searches: 0, quizTotal: 0, quizCount: 0, assignmentTotal: 0, assignmentCount: 0, pointsTotal: 0, pointsCount: 0, performanceTotal: 0, performanceCount: 0, minutes: 0, enrollmentDays: 0 }
     };
 
     assessmentHistory.forEach((item) => {
         const subject = normalizeSubjectLabel(item.subject);
+        const quizScore = Math.max(0, Math.min(100, readNumber(item.quizScore)));
+        const assignmentMarks = Math.max(0, Math.min(100, readNumber(item.assignmentMarks ?? item.quizScore)));
+        const assessmentPoints = Math.max(0, Math.min(100, readNumber(item.points ?? calculateAcademicScore(quizScore, assignmentMarks))));
         stats[subject].searches += 1;
-        stats[subject].quizTotal += Math.max(0, Math.min(100, readNumber(item.quizScore)));
+        stats[subject].quizTotal += quizScore;
         stats[subject].quizCount += 1;
+        stats[subject].assignmentTotal += assignmentMarks;
+        stats[subject].assignmentCount += 1;
+        stats[subject].pointsTotal += assessmentPoints;
+        stats[subject].pointsCount += 1;
         const performanceLabel = String(item.performance || "medium").toLowerCase();
         const performanceScore = performanceLabel === "high" ? 92 : performanceLabel === "low" ? 45 : 70;
         stats[subject].performanceTotal += performanceScore;
@@ -519,12 +599,14 @@ function renderPersonalInsights() {
     const scored = subjects.map((subject) => {
         const subjectData = stats[subject];
         const avgQuiz = subjectData.quizCount ? subjectData.quizTotal / subjectData.quizCount : 0;
+        const avgAssignment = subjectData.assignmentCount ? subjectData.assignmentTotal / subjectData.assignmentCount : 0;
+        const avgPoints = subjectData.pointsCount ? subjectData.pointsTotal / subjectData.pointsCount : calculateAcademicScore(avgQuiz, avgAssignment);
         const avgPerformance = subjectData.performanceCount ? subjectData.performanceTotal / subjectData.performanceCount : 0;
         const studyScore = Math.min(100, (subjectData.minutes / 240) * 100);
         const enrollmentScore = Math.min(100, subjectData.enrollmentDays * 8);
         const searchScore = Math.min(100, subjectData.searches * 12);
-        const overall = (avgQuiz * 0.35) + (avgPerformance * 0.25) + (studyScore * 0.20) + (enrollmentScore * 0.10) + (searchScore * 0.10);
-        return { subject, avgQuiz, avgPerformance, studyScore, enrollmentScore, searches: subjectData.searches, overall };
+        const overall = (avgPoints * 0.35) + (avgPerformance * 0.20) + (studyScore * 0.20) + (avgQuiz * 0.10) + (avgAssignment * 0.05) + (enrollmentScore * 0.05) + (searchScore * 0.05);
+        return { subject, avgQuiz, avgAssignment, avgPoints, avgPerformance, studyScore, enrollmentScore, searches: subjectData.searches, overall };
     });
 
     const hasAnyData = scored.some((item) => item.searches > 0 || item.studyScore > 0 || item.avgQuiz > 0);
@@ -609,6 +691,11 @@ function refreshAnalyzerDashboard() {
         programming: 0,
         analytics: 0
     };
+    const subjectAssessment = {
+        mathematics: { pointsTotal: 0, count: 0 },
+        programming: { pointsTotal: 0, count: 0 },
+        analytics: { pointsTotal: 0, count: 0 }
+    };
 
     let totalMinutes = 0;
     Object.entries(resourceStudyMinutes).forEach(([resourceId, minutes]) => {
@@ -623,10 +710,30 @@ function refreshAnalyzerDashboard() {
         subjectMinutes[bucket] += value;
     });
 
-    const completion = Math.min(100, Math.round((totalMinutes / 600) * 100));
-    const mathScore = Math.min(100, Math.round((subjectMinutes.mathematics / 240) * 100));
-    const programmingScore = Math.min(100, Math.round((subjectMinutes.programming / 240) * 100));
-    const analyticsScore = Math.min(100, Math.round((subjectMinutes.analytics / 240) * 100));
+    assessmentHistory.forEach((item) => {
+        const bucket = normalizeSubjectLabel(item.subject);
+        if (!subjectAssessment[bucket]) {
+            return;
+        }
+        const quizScore = Math.max(0, Math.min(100, readNumber(item.quizScore)));
+        const assignmentMarks = Math.max(0, Math.min(100, readNumber(item.assignmentMarks ?? item.quizScore)));
+        const points = Math.max(0, Math.min(100, readNumber(item.points ?? calculateAcademicScore(quizScore, assignmentMarks))));
+        subjectAssessment[bucket].pointsTotal += points;
+        subjectAssessment[bucket].count += 1;
+    });
+
+    const avgAssessmentMath = subjectAssessment.mathematics.count ? (subjectAssessment.mathematics.pointsTotal / subjectAssessment.mathematics.count) : 0;
+    const avgAssessmentProgramming = subjectAssessment.programming.count ? (subjectAssessment.programming.pointsTotal / subjectAssessment.programming.count) : 0;
+    const avgAssessmentAnalytics = subjectAssessment.analytics.count ? (subjectAssessment.analytics.pointsTotal / subjectAssessment.analytics.count) : 0;
+    const globalAssessmentCount = subjectAssessment.mathematics.count + subjectAssessment.programming.count + subjectAssessment.analytics.count;
+    const globalAssessmentPoints = subjectAssessment.mathematics.pointsTotal + subjectAssessment.programming.pointsTotal + subjectAssessment.analytics.pointsTotal;
+    const avgAssessmentOverall = globalAssessmentCount ? (globalAssessmentPoints / globalAssessmentCount) : 0;
+
+    const studyCompletion = Math.min(100, (totalMinutes / 600) * 100);
+    const completion = Math.min(100, Math.round((studyCompletion * 0.7) + (avgAssessmentOverall * 0.3)));
+    const mathScore = Math.min(100, Math.round(((subjectMinutes.mathematics / 240) * 100 * 0.55) + (avgAssessmentMath * 0.45)));
+    const programmingScore = Math.min(100, Math.round(((subjectMinutes.programming / 240) * 100 * 0.55) + (avgAssessmentProgramming * 0.45)));
+    const analyticsScore = Math.min(100, Math.round(((subjectMinutes.analytics / 240) * 100 * 0.55) + (avgAssessmentAnalytics * 0.45)));
     const weekSeries = getWeeklyHoursSeries();
     const weeklyTotal = weekSeries.reduce((sum, val) => sum + val, 0);
     const streak = getCurrentStreakDays();
@@ -641,8 +748,12 @@ function refreshAnalyzerDashboard() {
     weeklyHours.textContent = `${weeklyTotal.toFixed(1)} hrs`;
     streakDays.textContent = `${streak} days`;
 
-    if (totalMinutes <= 0) {
+    if (totalMinutes <= 0 && avgAssessmentOverall <= 0) {
         trendMessage.textContent = "Enroll in a course and log study minutes to start analytics.";
+    } else if (avgAssessmentOverall >= 80) {
+        trendMessage.textContent = "Strong assessment points trend. Keep converting this into consistent study time.";
+    } else if (avgAssessmentOverall >= 60) {
+        trendMessage.textContent = "Assessment trend is improving. Add more daily study time for faster gains.";
     } else if (completion >= 75) {
         trendMessage.textContent = "Consistency is improving this week.";
     } else if (completion >= 45) {
@@ -653,6 +764,7 @@ function refreshAnalyzerDashboard() {
 
     renderWeeklyChart(weekSeries);
     renderPersonalInsights();
+    renderAssessmentMarksOverview();
 }
 
 function detectIntent({ query, certification, performance, quizScore, assignmentMarks }) {
@@ -706,7 +818,10 @@ function cosineSimilarity(vecA, vecB) {
 function buildUserVector({ subject, style, intent, performance, quizScore, assignmentMarks }) {
     const academicScore = calculateAcademicScore(quizScore, assignmentMarks);
     const vector = new Array(10).fill(0);
-    vector[featureIndex[subject]] = 1;
+    const mappedSubject = normalizeSubjectForModel(subject);
+    if (featureIndex[mappedSubject] !== undefined) {
+        vector[featureIndex[mappedSubject]] = 1;
+    }
     if (style === "mixed") {
         vector[featureIndex.visual] = 0.45;
         vector[featureIndex.reading] = 0.45;
@@ -731,7 +846,16 @@ function parseChatToSchoolProfile(message) {
     const text = message.toLowerCase();
     let subject = latestAssessment?.subject || "mathematics";
     let subjectExplicit = false;
-    if (text.includes("program") || text.includes("python") || text.includes("coding")) {
+    if (text.includes("english") || text.includes("writing") || text.includes("comprehension")) {
+        subject = "english";
+        subjectExplicit = true;
+    } else if (text.includes("science") || text.includes("physics") || text.includes("chemistry") || text.includes("biology")) {
+        subject = text.includes("physics") ? "physics" : (text.includes("chemistry") ? "chemistry" : "science");
+        subjectExplicit = true;
+    } else if (text.includes("social") || text.includes("group study") || text.includes("peer")) {
+        subject = "social";
+        subjectExplicit = true;
+    } else if (text.includes("program") || text.includes("python") || text.includes("coding")) {
         subject = "programming";
         subjectExplicit = true;
     } else if (text.includes("analytic") || text.includes("data") || text.includes("statistics") || text.includes("probability")) {
@@ -911,6 +1035,7 @@ function recordSearchHistoryFromChat(userText) {
         subject: profile.subject,
         quizScore: profile.quizScore,
         assignmentMarks: profile.assignmentMarks,
+        points: calculateAcademicScore(profile.quizScore, profile.assignmentMarks),
         performance: profile.performance,
         query: userText,
         timestamp: new Date().toISOString()
@@ -923,6 +1048,15 @@ function recordSearchHistoryFromChat(userText) {
 }
 
 function getSubjectCourseNames(subject) {
+    if (subject === "science" || subject === "physics" || subject === "chemistry") {
+        return ["Statistics Basics", "School Data Interpretation Basics", "Probability for Beginners"];
+    }
+    if (subject === "english") {
+        return ["Foundations of Algebra", "School Study Skills Bootcamp", "Exam Revision Sprint"];
+    }
+    if (subject === "social") {
+        return ["School Study Skills Bootcamp", "Concept Videos and Visual Notes", "Exam Revision Sprint"];
+    }
     if (subject === "programming") {
         return ["Programming Fundamentals", "Data Structures with Practice", "Scratch to Python Bridge", "Coding Logic Drills for School"];
     }
@@ -977,6 +1111,7 @@ function getCourseMeta(courseName) {
 function recommendWithML({ grade, subject, intent, performance, quizScore, assignmentMarks, userVector, feedback }) {
     const gradeBoost = { school: 1, undergraduate: 0.75, postgraduate: 0.5 };
     const targetDifficulty = getTargetDifficulty(performance, quizScore, assignmentMarks);
+    const mappedSubject = normalizeSubjectForModel(subject);
 
     return courseCatalog
         .map((course) => {
@@ -988,7 +1123,7 @@ function recommendWithML({ grade, subject, intent, performance, quizScore, assig
             } else if (course.level === "postgraduate") {
                 score -= 0.18;
             }
-            if (meta.subject === subject) {
+            if (meta.subject === mappedSubject) {
                 score += 0.35;
             } else if (meta.subject !== "general") {
                 score -= 0.2;
@@ -1157,9 +1292,10 @@ function renderResourceCatalog() {
     }
 
     const filterValue = resourceFilter.value;
+    const normalizedFilter = (filterValue === "physics" || filterValue === "chemistry") ? "science" : filterValue;
     const visibleResources = filterValue === "all"
         ? resourceLibrary
-        : resourceLibrary.filter((item) => item.subject === filterValue);
+        : resourceLibrary.filter((item) => item.subject === normalizedFilter);
 
     resourceCatalog.innerHTML = "";
 
@@ -1317,6 +1453,7 @@ assessmentForm.addEventListener("submit", (event) => {
             subject,
             quizScore,
             assignmentMarks,
+            points: academicScore,
             performance,
             query,
             timestamp: new Date().toISOString()

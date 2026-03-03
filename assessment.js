@@ -8,6 +8,13 @@ const improvementSuggestionsList = document.getElementById("improvementSuggestio
 const assessmentSummary = document.getElementById("assessmentSummary");
 const consentCheck = document.getElementById("consentCheck");
 const complianceMsg = document.getElementById("complianceMsg");
+const quizQuestionSet = document.getElementById("quizQuestionSet");
+const assignmentQuestionSet = document.getElementById("assignmentQuestionSet");
+const quizScoreInput = document.getElementById("quizScore");
+const assignmentMarksInput = document.getElementById("assignmentMarks");
+const subjectInterestInput = document.getElementById("subjectInterest");
+
+const ANALYZER_STORAGE_KEY = "eduaiAnalyzerState";
 
 const studentEmail = localStorage.getItem("eduaiCurrentUser") || "student@eduai.com";
 const studentName = studentEmail.split("@")[0];
@@ -41,6 +48,112 @@ const courseCatalog = [
     { name: "School Study Skills Bootcamp", vector: [0.2, 0.2, 0.3, 0.2, 0.2, 0.5, 0.4, 0.3, 0.8, 0.2], level: "school" },
     { name: "Exam Revision Sprint", vector: [0.2, 0.3, 0.4, 0.2, 0.2, 0.4, 0.4, 0.8, 0.6, 0.3], level: "school" }
 ];
+
+const questionBank = {
+    mathematics: {
+        quiz: [
+            { q: "What is 15% of 200?", options: ["20", "25", "30", "40"], answer: 2 },
+            { q: "Solve: 7x = 56", options: ["6", "7", "8", "9"], answer: 2 },
+            { q: "Area of rectangle 8 x 5 is", options: ["13", "30", "40", "45"], answer: 2 }
+        ],
+        assignment: [
+            { q: "Which is a prime number?", options: ["21", "27", "29", "39"], answer: 2 },
+            { q: "Simplify: 3/4 + 1/4", options: ["1/2", "1", "3/8", "4/8"], answer: 1 },
+            { q: "Perimeter of square with side 6", options: ["12", "18", "24", "36"], answer: 2 }
+        ]
+    },
+    programming: {
+        quiz: [
+            { q: "Which keyword defines a function in Python?", options: ["func", "define", "def", "lambda"], answer: 2 },
+            { q: "What is the index of first list element?", options: ["0", "1", "-1", "Depends"], answer: 0 },
+            { q: "Loop used for fixed iterations", options: ["for", "while", "if", "switch"], answer: 0 }
+        ],
+        assignment: [
+            { q: "Which data type stores True/False?", options: ["int", "bool", "str", "list"], answer: 1 },
+            { q: "Result of 3 + 2 * 2", options: ["10", "7", "8", "9"], answer: 1 },
+            { q: "Best structure for ordered items", options: ["set", "dict", "list", "tuple only"], answer: 2 }
+        ]
+    },
+    analytics: {
+        quiz: [
+            { q: "Mean of 2, 4, 6 is", options: ["3", "4", "5", "6"], answer: 1 },
+            { q: "Graph for parts of whole", options: ["Line", "Bar", "Pie", "Scatter"], answer: 2 },
+            { q: "Median of 3, 8, 9", options: ["3", "8", "9", "20"], answer: 1 }
+        ],
+        assignment: [
+            { q: "Probability value range", options: ["0 to 1", "1 to 10", "-1 to 1", "0 to 100"], answer: 0 },
+            { q: "Outlier means", options: ["Typical value", "Very high/low unusual value", "Average", "Missing value"], answer: 1 },
+            { q: "Best chart for category compare", options: ["Bar chart", "Pie chart", "Histogram", "Area chart"], answer: 0 }
+        ]
+    },
+    ai: {
+        quiz: [
+            { q: "AI system learns from", options: ["Only rules", "Data", "Battery", "Color"], answer: 1 },
+            { q: "Model prediction quality is measured by", options: ["Accuracy", "Brightness", "Volume", "Pixels"], answer: 0 },
+            { q: "Bias in AI can come from", options: ["Good data", "Biased data", "Fast CPU", "UI design"], answer: 1 }
+        ],
+        assignment: [
+            { q: "Which is supervised learning task?", options: ["Clustering", "Classification", "Random typing", "Compression"], answer: 1 },
+            { q: "Ethical AI requires", options: ["Fairness", "Secrecy", "No testing", "No data"], answer: 0 },
+            { q: "Overfitting means", options: ["Learns training data too closely", "Learns nothing", "Runs slowly", "Uses low memory"], answer: 0 }
+        ]
+    },
+    english: {
+        quiz: [
+            { q: "Choose the correct sentence", options: ["He go to school", "He goes to school", "He going school", "He gone school"], answer: 1 },
+            { q: "Synonym of 'rapid'", options: ["slow", "quick", "dull", "late"], answer: 1 },
+            { q: "Main idea of a paragraph means", options: ["small detail", "central point", "author name", "title font"], answer: 1 }
+        ],
+        assignment: [
+            { q: "Correct punctuation", options: ["Lets eat kids", "Lets eat, kids", "Let's eat, kids", "Lets, eat kids"], answer: 2 },
+            { q: "Antonym of 'include'", options: ["contain", "exclude", "collect", "accept"], answer: 1 },
+            { q: "A noun is", options: ["action word", "name of person/place/thing", "describing word", "joining word"], answer: 1 }
+        ]
+    },
+    science: {
+        quiz: [
+            { q: "Water boils at (sea level)", options: ["50C", "75C", "100C", "120C"], answer: 2 },
+            { q: "Plant food making process", options: ["Respiration", "Photosynthesis", "Evaporation", "Digestion"], answer: 1 },
+            { q: "SI unit of force", options: ["Joule", "Newton", "Watt", "Pascal"], answer: 1 }
+        ],
+        assignment: [
+            { q: "Earth revolves around", options: ["Moon", "Mars", "Sun", "Venus"], answer: 2 },
+            { q: "Acid turns blue litmus", options: ["Red", "Green", "Yellow", "Black"], answer: 0 },
+            { q: "Gas needed for combustion", options: ["Nitrogen", "Hydrogen", "Oxygen", "Helium"], answer: 2 }
+        ]
+    },
+    social: {
+        quiz: [
+            { q: "Democracy means", options: ["Rule by one", "Rule by people", "Rule by army", "Rule by court"], answer: 1 },
+            { q: "Map scale helps to", options: ["Cook food", "Measure distance on map", "Read stories", "Paint"], answer: 1 },
+            { q: "Fundamental rights are", options: ["Optional", "Basic rights for citizens", "Tax rules", "Exam rules"], answer: 1 }
+        ],
+        assignment: [
+            { q: "Panchayati Raj relates to", options: ["Local governance", "Space science", "Music", "Medicine"], answer: 0 },
+            { q: "Constitution defines", options: ["Recipes", "Basic laws", "Poems", "Games"], answer: 1 },
+            { q: "Savings and budgeting belong to", options: ["Civics", "Economics", "Biology", "Chemistry"], answer: 1 }
+        ]
+    }
+};
+
+function normalizeSubjectForModel(subject) {
+    const value = String(subject || "").toLowerCase();
+    if (value === "physics" || value === "chemistry" || value === "science") {
+        return "analytics";
+    }
+    if (value === "english" || value === "social") {
+        return "mathematics";
+    }
+    return value;
+}
+
+function normalizeSubjectForQuestions(subject) {
+    const value = String(subject || "").toLowerCase();
+    if (value === "physics" || value === "chemistry") {
+        return "science";
+    }
+    return value;
+}
 
 function lowerCaseSafe(value) {
     return (value || "").toLowerCase();
@@ -97,7 +210,10 @@ function cosineSimilarity(vecA, vecB) {
 function buildUserVector({ subject, style, intent, performance, quizScore, assignmentMarks }) {
     const academicScore = calculateAcademicScore(quizScore, assignmentMarks);
     const vector = new Array(10).fill(0);
-    vector[featureIndex[subject]] = 1;
+    const mappedSubject = normalizeSubjectForModel(subject);
+    if (featureIndex[mappedSubject] !== undefined) {
+        vector[featureIndex[mappedSubject]] = 1;
+    }
     if (style === "mixed") {
         vector[featureIndex.visual] = 0.45;
         vector[featureIndex.reading] = 0.45;
@@ -119,22 +235,23 @@ function buildUserVector({ subject, style, intent, performance, quizScore, assig
 
 function recommendWithML({ grade, subject, intent, performance, quizScore, assignmentMarks, userVector }) {
     const academicScore = calculateAcademicScore(quizScore, assignmentMarks);
+    const mappedSubject = normalizeSubjectForModel(subject);
     return courseCatalog
         .map((course) => {
             let score = cosineSimilarity(userVector, course.vector);
             if (course.level === grade) {
                 score += 0.2;
             }
-            if (subject === "mathematics" && course.name.toLowerCase().includes("algebra")) {
+            if (mappedSubject === "mathematics" && course.name.toLowerCase().includes("algebra")) {
                 score += 0.1;
             }
-            if (subject === "programming" && course.name.toLowerCase().includes("program")) {
+            if (mappedSubject === "programming" && course.name.toLowerCase().includes("program")) {
                 score += 0.1;
             }
-            if (subject === "analytics" && (course.name.toLowerCase().includes("data") || course.name.toLowerCase().includes("statistics"))) {
+            if (mappedSubject === "analytics" && (course.name.toLowerCase().includes("data") || course.name.toLowerCase().includes("statistics"))) {
                 score += 0.1;
             }
-            if (subject === "ai" && course.name.toLowerCase().includes("ai")) {
+            if (mappedSubject === "ai" && course.name.toLowerCase().includes("ai")) {
                 score += 0.1;
             }
             if (intent === "Certification preparation" && course.name.toLowerCase().includes("exam")) {
@@ -190,6 +307,98 @@ function renderImprovementSuggestions({ subject, performance, quizScore, assignm
     });
 }
 
+function renderQuestionSet(container, groupName, questions) {
+    if (!container) {
+        return;
+    }
+    container.innerHTML = "";
+    questions.forEach((item, index) => {
+        const wrapper = document.createElement("div");
+        wrapper.className = "form-row";
+
+        const title = document.createElement("p");
+        title.className = "hint";
+        title.textContent = `${index + 1}. ${item.q}`;
+        wrapper.appendChild(title);
+
+        item.options.forEach((option, optionIndex) => {
+            const label = document.createElement("label");
+            label.className = "inline-check";
+            label.innerHTML = `<input type="radio" name="${groupName}_${index}" value="${optionIndex}"> ${option}`;
+            wrapper.appendChild(label);
+        });
+
+        container.appendChild(wrapper);
+    });
+}
+
+function evaluateQuestionSet(groupName, questions) {
+    let correct = 0;
+    let answered = 0;
+    questions.forEach((item, index) => {
+        const selected = document.querySelector(`input[name="${groupName}_${index}"]:checked`);
+        if (!selected) {
+            return;
+        }
+        answered += 1;
+        if (Number(selected.value) === item.answer) {
+            correct += 1;
+        }
+    });
+
+    if (!questions.length) {
+        return { score: 0, answered: 0, total: 0 };
+    }
+
+    return {
+        score: Math.round((correct / questions.length) * 100),
+        answered,
+        total: questions.length
+    };
+}
+
+function getQuestionProfile(subject) {
+    const normalized = normalizeSubjectForQuestions(subject);
+    return questionBank[normalized] || questionBank.mathematics;
+}
+
+function renderQuestionBanksForSubject(subject) {
+    const profile = getQuestionProfile(subject);
+    renderQuestionSet(quizQuestionSet, "quiz", profile.quiz);
+    renderQuestionSet(assignmentQuestionSet, "assignment", profile.assignment);
+    if (quizScoreInput) {
+        quizScoreInput.value = "";
+    }
+    if (assignmentMarksInput) {
+        assignmentMarksInput.value = "";
+    }
+}
+
+function saveAssessmentRecord(record) {
+    let payload = {};
+    try {
+        payload = JSON.parse(localStorage.getItem(ANALYZER_STORAGE_KEY) || "{}");
+    } catch {
+        payload = {};
+    }
+
+    const assessments = Array.isArray(payload.assessments) ? payload.assessments : [];
+    assessments.push(record);
+    if (assessments.length > 100) {
+        assessments.splice(0, assessments.length - 100);
+    }
+    payload.assessments = assessments;
+
+    localStorage.setItem(ANALYZER_STORAGE_KEY, JSON.stringify(payload));
+}
+
+if (subjectInterestInput) {
+    subjectInterestInput.addEventListener("change", () => {
+        renderQuestionBanksForSubject(subjectInterestInput.value);
+    });
+    renderQuestionBanksForSubject(subjectInterestInput.value || "mathematics");
+}
+
 assessmentForm.addEventListener("submit", (event) => {
     event.preventDefault();
 
@@ -197,17 +406,35 @@ assessmentForm.addEventListener("submit", (event) => {
     const subject = document.getElementById("subjectInterest").value;
     const style = document.getElementById("learningStyle").value;
     const performance = document.getElementById("performance").value;
-    const quizScore = Number(document.getElementById("quizScore").value);
-    const assignmentMarks = Number(document.getElementById("assignmentMarks").value);
     const rawQuery = document.getElementById("textQuery").value.trim();
-    const query = rawQuery || `Need help in ${subject} with quiz ${quizScore} and assignment ${assignmentMarks}`;
     const certification = document.getElementById("goalCertification").checked;
-    const academicScore = calculateAcademicScore(quizScore, assignmentMarks);
 
-    if (!subject || !style || !performance || !Number.isFinite(quizScore) || !Number.isFinite(assignmentMarks)) {
-        assessmentSummary.textContent = "Assessment blocked: fill subject, learning style, performance, quiz score, and assignment marks.";
+    const profile = getQuestionProfile(subject);
+    const quizEval = evaluateQuestionSet("quiz", profile.quiz);
+    const assignmentEval = evaluateQuestionSet("assignment", profile.assignment);
+
+    if (!subject || !style || !performance) {
+        assessmentSummary.textContent = "Assessment blocked: fill subject, learning style, and performance.";
         return;
     }
+
+    if (quizEval.answered < quizEval.total || assignmentEval.answered < assignmentEval.total) {
+        assessmentSummary.textContent = "Assessment blocked: answer all quiz and assignment questions to generate marks.";
+        return;
+    }
+
+    const quizScore = quizEval.score;
+    const assignmentMarks = assignmentEval.score;
+    if (quizScoreInput) {
+        quizScoreInput.value = String(quizScore);
+    }
+    if (assignmentMarksInput) {
+        assignmentMarksInput.value = String(assignmentMarks);
+    }
+
+    const query = rawQuery || `Need help in ${subject} with quiz ${quizScore} and assignment ${assignmentMarks}`;
+    const academicScore = calculateAcademicScore(quizScore, assignmentMarks);
+
     if (!consentCheck.checked) {
         complianceMsg.textContent = "Consent missing: enable consent to generate recommendations.";
         assessmentSummary.textContent = "Assessment blocked: please check consent.";
@@ -226,6 +453,17 @@ assessmentForm.addEventListener("submit", (event) => {
         assignmentMarks,
         userVector
     });
+
+    const record = {
+        subject,
+        quizScore,
+        assignmentMarks,
+        points: academicScore,
+        performance,
+        query,
+        timestamp: new Date().toISOString()
+    };
+    saveAssessmentRecord(record);
 
     intentResult.textContent = `Detected intent: ${intent}`;
     assessmentSummary.textContent = `Assessment summary: ${grade} learner, subject ${subject}, ${style} style, ${performance} performance, quiz ${quizScore}%, assignment ${assignmentMarks}%, academic score ${academicScore}%.`;

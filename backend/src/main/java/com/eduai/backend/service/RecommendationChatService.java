@@ -184,7 +184,17 @@ public class RecommendationChatService {
 
     private StudentProfile parseProfile(String text) {
         String subject = "mathematics";
-        if (text.contains("program")) {
+        if (text.contains("english") || text.contains("writing") || text.contains("comprehension")) {
+            subject = "english";
+        } else if (text.contains("science") || text.contains("biology")) {
+            subject = "science";
+        } else if (text.contains("physics")) {
+            subject = "physics";
+        } else if (text.contains("chemistry")) {
+            subject = "chemistry";
+        } else if (text.contains("social") || text.contains("peer") || text.contains("group study")) {
+            subject = "social";
+        } else if (text.contains("program")) {
             subject = "programming";
         } else if (text.contains("analytic") || text.contains("data")) {
             subject = "analytics";
@@ -220,7 +230,15 @@ public class RecommendationChatService {
                 || text.contains("analytic")
                 || text.contains("data")
                 || text.contains("ai")
-                || text.contains("machine learning");
+                || text.contains("machine learning")
+                || text.contains("english")
+                || text.contains("science")
+                || text.contains("social")
+                || text.contains("physics")
+                || text.contains("chemistry")
+                || text.contains("writing")
+                || text.contains("comprehension")
+                || text.contains("biology");
     }
 
     private int extractQuizScore(String text) {
@@ -297,6 +315,9 @@ public class RecommendationChatService {
             case "programming" -> List.of("Programming Fundamentals", "Data Structures with Practice");
             case "analytics" -> List.of("Statistics Basics", "Data Visualization Studio");
             case "ai" -> List.of("AI Foundations", "Machine Learning Concepts");
+            case "english" -> List.of("Academic Writing Skills", "Reading Comprehension Strategies");
+            case "social" -> List.of("Peer Study Groups", "School Study Skills Bootcamp");
+            case "science", "physics", "chemistry" -> List.of("Science Concepts Made Simple", "Probability for Beginners");
             default -> List.of("Foundations of Algebra", "Applied Problem Solving Lab");
         };
     }

@@ -43,6 +43,11 @@
                                 <option value="programming">Programming</option>
                                 <option value="analytics">Data Analytics</option>
                                 <option value="ai">Artificial Intelligence</option>
+                                <option value="english">English</option>
+                                <option value="science">Science</option>
+                                <option value="social">Social</option>
+                                <option value="physics">Physics</option>
+                                <option value="chemistry">Chemistry</option>
                             </select>
                         </div>
 
@@ -69,12 +74,24 @@
 
                         <div class="form-row">
                             <label for="quizScore">Quiz Score (%)</label>
-                            <input type="number" id="quizScore" min="0" max="100" placeholder="e.g. 67" required>
+                            <input type="number" id="quizScore" min="0" max="100" placeholder="Auto from quiz" readonly required>
                         </div>
                         <div class="form-row">
                             <label for="assignmentMarks">Assignment Marks (%)</label>
-                            <input type="number" id="assignmentMarks" min="0" max="100" placeholder="e.g. 74" required>
+                            <input type="number" id="assignmentMarks" min="0" max="100" placeholder="Auto from assignment" readonly required>
                         </div>
+
+                        <article class="panel">
+                            <h4>Subject Quiz</h4>
+                            <p class="hint">Answer all quiz questions. Score will auto-fill in Quiz Score.</p>
+                            <div id="quizQuestionSet" class="stack-form"></div>
+                        </article>
+
+                        <article class="panel">
+                            <h4>Subject Assignment</h4>
+                            <p class="hint">Answer all assignment questions. Marks will auto-fill in Assignment Marks.</p>
+                            <div id="assignmentQuestionSet" class="stack-form"></div>
+                        </article>
 
                         <div class="form-row">
                             <label for="textQuery">Text Query</label>
