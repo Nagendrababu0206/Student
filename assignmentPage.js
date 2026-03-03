@@ -7,6 +7,7 @@ const assignmentMarksInput = document.getElementById("assignmentMarks");
 const assignmentQuestionSet = document.getElementById("assignmentQuestionSet");
 const assignmentSummary = document.getElementById("assignmentSummary");
 const consentCheck = document.getElementById("consentCheck");
+const selectedSubjectsPanel = document.getElementById("selectedSubjectsPanel");
 
 const ANALYZER_STORAGE_KEY = "eduaiAnalyzerState";
 const studentEmail = localStorage.getItem("eduaiCurrentUser") || "student@eduai.com";
@@ -63,6 +64,7 @@ const assignmentBank = {
 const urlParams = new URLSearchParams(window.location.search);
 const fromEnrolled = urlParams.get("from") === "enrolled";
 let activeQuestions = [];
+let selectedSubjects = [];
 
 function normalizeSubject(subject) {
     const value = String(subject || "").toLowerCase();
@@ -123,6 +125,38 @@ function buildQuestionsForSubjects(subjects, count) {
     return selected.slice(0, count);
 }
 
+function normalizeSubjectList(subjects) {
+    return Array.from(new Set(subjects.map((item) => normalizeSubject(item)).filter((item) => Boolean(assignmentBank[item]))));
+}
+
+function renderSubjectSelection(subjects) {
+    if (!selectedSubjectsPanel) {
+        return;
+    }
+    selectedSubjectsPanel.innerHTML = "";
+    const normalized = normalizeSubjectList(subjects);
+    if (!normalized.length) {
+        selectedSubjectsPanel.innerHTML = "<p class=\"hint\">No selectable subjects found. Using selected subject only.</p>";
+        return;
+    }
+
+    normalized.forEach((subject) => {
+        const label = document.createElement("label");
+        label.className = "inline-check";
+        label.innerHTML = `<input type="checkbox" value="${subject}" checked> ${subject}`;
+        selectedSubjectsPanel.appendChild(label);
+    });
+}
+
+function getSelectedSubjectsFromPanel() {
+    if (!selectedSubjectsPanel) {
+        return [];
+    }
+    return Array.from(selectedSubjectsPanel.querySelectorAll("input[type=\"checkbox\"]:checked"))
+        .map((input) => normalizeSubject(input.value))
+        .filter((item) => Boolean(assignmentBank[item]));
+}
+
 function renderQuestions(questions) {
     assignmentQuestionSet.innerHTML = "";
     questions.forEach((item, index) => {
@@ -145,14 +179,26 @@ function renderQuestions(questions) {
 
 function renderBySubject(subject) {
     const normalized = normalizeSubject(subject);
-    activeQuestions = fromEnrolled
-        ? buildQuestionsForSubjects(Array.from(new Set([...getSubjectsFromQuery(), ...getEnrolledSubjectsFromPayload(), normalized])), 3)
-        : (assignmentBank[normalized] || assignmentBank.mathematics);
+    const availableSubjects = fromEnrolled
+        ? normalizeSubjectList([...getSubjectsFromQuery(), ...getEnrolledSubjectsFromPayload(), normalized])
+        : normalizeSubjectList([normalized]);
+
+    if (!selectedSubjects.length) {
+        selectedSubjects = availableSubjects.length ? availableSubjects : [normalized];
+    }
+
+    renderSubjectSelection(availableSubjects.length ? availableSubjects : selectedSubjects);
+
+    const userSelected = getSelectedSubjectsFromPanel();
+    selectedSubjects = userSelected.length ? userSelected : (availableSubjects.length ? availableSubjects : [normalized]);
+
+    activeQuestions = buildQuestionsForSubjects(selectedSubjects, 3);
     if (!activeQuestions.length) {
         activeQuestions = assignmentBank.mathematics;
     }
     renderQuestions(activeQuestions);
     assignmentMarksInput.value = "";
+    assignmentSummary.textContent = `Assignment generated from: ${selectedSubjects.join(", ")}.`;
 }
 
 function getLatestQuizForSubject(subject) {
@@ -197,9 +243,16 @@ if (subjectInterestInput) {
         : [];
     if (subjects.length) {
         subjectInterestInput.value = subjects[0];
+        selectedSubjects = subjects;
     }
     subjectInterestInput.addEventListener("change", () => renderBySubject(subjectInterestInput.value));
     renderBySubject(subjectInterestInput.value || "mathematics");
+}
+
+if (selectedSubjectsPanel) {
+    selectedSubjectsPanel.addEventListener("change", () => {
+        renderBySubject(subjectInterestInput?.value || "mathematics");
+    });
 }
 
 if (assignmentForm) {
@@ -233,12 +286,12 @@ if (assignmentForm) {
         const payload = readPayload();
         const assessments = Array.isArray(payload.assessments) ? payload.assessments : [];
         assessments.push({
-            subject: normalizeSubject(subject),
+            subject: selectedSubjects[0] || normalizeSubject(subject),
             quizScore,
             assignmentMarks,
             points,
             performance: points >= 80 ? "high" : points < 60 ? "low" : "medium",
-            query: "Assignment page evaluation",
+            query: `Assignment page evaluation (${selectedSubjects.join(", ")})`,
             timestamp: new Date().toISOString()
         });
         if (assessments.length > 100) {
@@ -247,7 +300,7 @@ if (assignmentForm) {
         payload.assessments = assessments;
         writePayload(payload);
 
-        assignmentSummary.textContent = `Assignment marks calculated: ${assignmentMarks}%. Quiz considered: ${quizScore}%. Academic points: ${points}%. Analyzer updated.`;
+        assignmentSummary.textContent = `Assignment marks calculated: ${assignmentMarks}% from [${selectedSubjects.join(", ")}]. Quiz considered: ${quizScore}%. Academic points: ${points}%. Analyzer updated.`;
     });
 }
 
