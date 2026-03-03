@@ -14,13 +14,39 @@
 
 body {
     margin: 0;
-    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    font-family: "Manrope", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
     color: var(--text);
     background:
         radial-gradient(circle at top right, #dbeafe 0%, transparent 42%),
         radial-gradient(circle at bottom left, #e0f2fe 0%, transparent 35%),
         var(--bg);
     min-height: 100vh;
+    position: relative;
+}
+
+body::before,
+body::after {
+    content: "";
+    position: fixed;
+    border-radius: 999px;
+    pointer-events: none;
+    z-index: 0;
+}
+
+body::before {
+    width: 360px;
+    height: 360px;
+    top: -120px;
+    left: -120px;
+    background: radial-gradient(circle, rgba(2, 132, 199, 0.18) 0%, rgba(2, 132, 199, 0) 70%);
+}
+
+body::after {
+    width: 440px;
+    height: 440px;
+    right: -140px;
+    bottom: -160px;
+    background: radial-gradient(circle, rgba(14, 165, 233, 0.16) 0%, rgba(14, 165, 233, 0) 70%);
 }
 
 .topbar {
@@ -29,6 +55,8 @@ body {
     align-items: center;
     gap: 16px;
     padding: 26px clamp(18px, 4vw, 44px);
+    position: relative;
+    z-index: 1;
 }
 
 .eyebrow {
@@ -43,16 +71,18 @@ body {
 h1 {
     margin: 6px 0 0;
     font-size: clamp(1.35rem, 3vw, 2rem);
+    letter-spacing: 0.01em;
 }
 
 .profile-chip {
     display: flex;
     align-items: center;
     gap: 12px;
-    background: #ffffff;
-    border: 1px solid var(--line);
+    background: linear-gradient(145deg, #ffffff, #f8fbff);
+    border: 1px solid #cfddea;
     border-radius: 999px;
     padding: 8px 12px;
+    box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
 }
 
 #welcomeUser {
@@ -63,21 +93,70 @@ h1 {
 #logoutBtn,
 button {
     border: none;
-    background: #e2e8f0;
-    color: #0f172a;
+    background: linear-gradient(135deg, #0ea5e9, #0284c7);
+    color: #ffffff;
     padding: 8px 12px;
     border-radius: 10px;
     cursor: pointer;
-    font-weight: 600;
+    font-weight: 700;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
 }
 
 #logoutBtn:hover,
 button:hover {
-    background: #cbd5e1;
+    transform: translateY(-1px);
+    box-shadow: 0 10px 18px rgba(2, 132, 199, 0.26);
+    filter: brightness(1.05);
+}
+
+.welcome-ribbon {
+    margin: 0 clamp(18px, 4vw, 44px) 18px;
+    padding: clamp(14px, 2vw, 20px);
+    border: 1px solid #c8e6fb;
+    border-radius: 18px;
+    background: linear-gradient(120deg, rgba(2, 132, 199, 0.12), rgba(14, 165, 233, 0.06) 40%, rgba(255, 255, 255, 0.9));
+    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.1);
+    display: grid;
+    gap: 10px;
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-ribbon__eyebrow {
+    margin: 0;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    color: #0c4a6e;
+    font-weight: 800;
+}
+
+.welcome-ribbon h2 {
+    margin: 4px 0 0;
+    font-size: clamp(1.02rem, 2vw, 1.35rem);
+    color: #0f172a;
+}
+
+.welcome-ribbon__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.welcome-ribbon__chips span {
+    background: rgba(14, 165, 233, 0.14);
+    color: #0c4a6e;
+    border: 1px solid rgba(14, 165, 233, 0.32);
+    border-radius: 999px;
+    padding: 6px 10px;
+    font-size: 0.8rem;
+    font-weight: 700;
 }
 
 .dashboard {
     padding: 0 clamp(18px, 4vw, 44px) 30px;
+    position: relative;
+    z-index: 1;
 }
 
 .metrics {
@@ -93,7 +172,15 @@ button:hover {
     border: 1px solid var(--line);
     border-radius: 14px;
     padding: 16px;
-    box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
+    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.metric-card:hover,
+.panel:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 28px rgba(15, 23, 42, 0.12);
+    border-color: #bfdbfe;
 }
 
 .metric-card h2 {
@@ -124,6 +211,7 @@ button:hover {
 .panel h3 {
     margin: 0 0 12px;
     font-size: 1rem;
+    color: #0c4a6e;
 }
 
 .list {
@@ -257,6 +345,7 @@ button:hover {
 .workflow-section h2 {
     margin: 0;
     font-size: 1.35rem;
+    color: #082f49;
 }
 
 .workflow-sub {
@@ -359,12 +448,13 @@ button:hover {
 }
 
 .small-btn {
-    background: #e0f2fe;
+    background: linear-gradient(135deg, #e0f2fe, #bae6fd);
     color: #0c4a6e;
+    border: 1px solid #bae6fd;
 }
 
 .small-btn:hover {
-    background: #bae6fd;
+    background: linear-gradient(135deg, #bae6fd, #7dd3fc);
 }
 
 .resource-toolbar {
@@ -532,14 +622,33 @@ body.dark-theme #welcomeUser {
 body.dark-theme #logoutBtn,
 body.dark-theme #themeToggleBtn,
 body.dark-theme button {
-    background: #1e293b;
+    background: linear-gradient(135deg, #0ea5e9, #0369a1);
     color: #e2e8f0;
 }
 
 body.dark-theme #logoutBtn:hover,
 body.dark-theme #themeToggleBtn:hover,
 body.dark-theme button:hover {
-    background: #334155;
+    background: linear-gradient(135deg, #38bdf8, #0284c7);
+}
+
+body.dark-theme .welcome-ribbon {
+    background: linear-gradient(120deg, rgba(2, 132, 199, 0.18), rgba(14, 165, 233, 0.07) 40%, rgba(11, 18, 37, 0.8));
+    border-color: #1e3a5f;
+}
+
+body.dark-theme .welcome-ribbon__eyebrow {
+    color: #7dd3fc;
+}
+
+body.dark-theme .welcome-ribbon h2 {
+    color: #e2e8f0;
+}
+
+body.dark-theme .welcome-ribbon__chips span {
+    background: rgba(14, 165, 233, 0.2);
+    border-color: rgba(56, 189, 248, 0.35);
+    color: #bae6fd;
 }
 
 body.dark-theme .metric-value {
