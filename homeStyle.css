@@ -405,6 +405,34 @@ button:hover {
     color: #334155;
 }
 
+.form-row label.inline-check {
+    display: inline-flex;
+    margin: 0 14px 8px 0;
+    font-weight: 500;
+    padding: 7px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    background: #f8fafc;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-row label.inline-check:hover {
+    border-color: #38bdf8;
+    background: #f0f9ff;
+}
+
+.form-row label.inline-check input[type="radio"] {
+    margin: 0;
+    accent-color: #0284c7;
+}
+
+.form-row label.inline-check.selected-option {
+    border-color: #0284c7;
+    background: #e0f2fe;
+    box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.18);
+}
+
 .output-box {
     margin: 0 0 12px;
     padding: 10px 11px;

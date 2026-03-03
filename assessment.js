@@ -359,7 +359,17 @@ function renderQuestionSet(container, groupName, questions) {
         item.options.forEach((option, optionIndex) => {
             const label = document.createElement("label");
             label.className = "inline-check";
+            label.dataset.group = `${groupName}_${index}`;
             label.innerHTML = `<input type="radio" name="${groupName}_${index}" value="${optionIndex}"> ${option}`;
+            const input = label.querySelector("input");
+            if (input) {
+                input.addEventListener("change", () => {
+                    wrapper.querySelectorAll(`label[data-group="${groupName}_${index}"]`).forEach((itemLabel) => {
+                        itemLabel.classList.remove("selected-option");
+                    });
+                    label.classList.add("selected-option");
+                });
+            }
             wrapper.appendChild(label);
         });
 
@@ -599,7 +609,7 @@ assessmentForm.addEventListener("submit", (event) => {
     saveAssessmentRecord(record);
 
     intentResult.textContent = `Detected intent: ${intent}`;
-    assessmentSummary.textContent = `Assessment summary: ${grade} learner, subject ${subject}, ${style} style, ${performance} performance, quiz ${quizScore}%, assignment ${assignmentMarks}%, academic score ${academicScore}%.`;
+    assessmentSummary.textContent = `Marks calculated: Quiz ${quizScore}%, Assignment ${assignmentMarks}%, Academic ${academicScore}%. Recommendations updated.`;
     renderRecommendationResults(recommendations);
     renderImprovementSuggestions({ subject, performance, quizScore, assignmentMarks, intent, recommendations });
 

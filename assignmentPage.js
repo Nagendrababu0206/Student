@@ -170,7 +170,17 @@ function renderQuestions(questions) {
         item.options.forEach((option, optionIndex) => {
             const label = document.createElement("label");
             label.className = "inline-check";
+            label.dataset.group = `assignment_${index}`;
             label.innerHTML = `<input type="radio" name="assignment_${index}" value="${optionIndex}"> ${option}`;
+            const input = label.querySelector("input");
+            if (input) {
+                input.addEventListener("change", () => {
+                    wrapper.querySelectorAll(`label[data-group="assignment_${index}"]`).forEach((itemLabel) => {
+                        itemLabel.classList.remove("selected-option");
+                    });
+                    label.classList.add("selected-option");
+                });
+            }
             wrapper.appendChild(label);
         });
         assignmentQuestionSet.appendChild(wrapper);
