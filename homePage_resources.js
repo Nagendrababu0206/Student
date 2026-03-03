@@ -72,6 +72,7 @@ let remoteApiBase = "";
 const THEME_STORAGE_KEY = "eduaiTheme";
 const ANALYZER_STORAGE_KEY = "eduaiAnalyzerState";
 const FOCUS_STORAGE_KEY = "eduaiFocusState";
+const CONSENT_STORAGE_KEY = "eduaiConsentAccepted";
 const feedbackSignals = {
     concern: "none",
     text: ""
@@ -84,6 +85,15 @@ const focusSession = {
     awayStartedAt: 0
 };
 let focusIntervalId = null;
+
+function syncConsentMessage(isChecked) {
+    if (!complianceMsg) {
+        return;
+    }
+    complianceMsg.textContent = isChecked
+        ? "Consent confirmed. Compliance checks passed for recommendation output."
+        : "Consent required before final recommendation release.";
+}
 
 function normalizeBackendUrl(value) {
     return String(value || "")
@@ -128,6 +138,17 @@ function readNumber(value) {
 
 function calculateAcademicScore(quizScore, assignmentMarks) {
     return Math.round((readNumber(quizScore) * 0.6) + (readNumber(assignmentMarks) * 0.4));
+}
+
+function derivePerformanceFromScores(quizScore, assignmentMarks) {
+    const academicScore = calculateAcademicScore(quizScore, assignmentMarks);
+    if (academicScore >= 80) {
+        return "high";
+    }
+    if (academicScore < 60) {
+        return "low";
+    }
+    return "medium";
 }
 
 function formatRemainingTime(ms) {
@@ -472,6 +493,60 @@ function normalizeSubjectLabel(subject) {
         return normalized;
     }
     return "analytics";
+}
+
+function getLatestScoresForSubject(subject) {
+    const target = normalizeSubjectLabel(subject);
+    for (let i = assessmentHistory.length - 1; i >= 0; i -= 1) {
+        const item = assessmentHistory[i];
+        if (normalizeSubjectLabel(item?.subject) !== target) {
+            continue;
+        }
+        const quizScore = Math.max(0, Math.min(100, readNumber(item.quizScore)));
+        const assignmentMarks = Math.max(0, Math.min(100, readNumber(item.assignmentMarks ?? item.quizScore)));
+        const points = Math.max(0, Math.min(100, readNumber(item.points ?? calculateAcademicScore(quizScore, assignmentMarks))));
+        return { quizScore, assignmentMarks, points, timestamp: String(item.timestamp || "") };
+    }
+    return null;
+}
+
+function syncAssessmentInputsFromHistory() {
+    const subjectInput = document.getElementById("subjectInterest");
+    const quizInput = document.getElementById("quizScore");
+    const assignmentInput = document.getElementById("assignmentMarks");
+    const performanceInput = document.getElementById("performance");
+    if (!subjectInput || !quizInput || !assignmentInput) {
+        return;
+    }
+
+    const snapshot = getLatestScoresForSubject(subjectInput.value);
+    if (!snapshot) {
+        quizInput.value = "";
+        assignmentInput.value = "";
+        if (assessmentSummary) {
+            assessmentSummary.textContent = "No saved quiz/assignment marks for selected subject. Take quiz and assignment first.";
+        }
+        return;
+    }
+
+    quizInput.value = String(Math.round(snapshot.quizScore));
+    assignmentInput.value = String(Math.round(snapshot.assignmentMarks));
+    if (performanceInput) {
+        performanceInput.value = derivePerformanceFromScores(snapshot.quizScore, snapshot.assignmentMarks);
+    }
+}
+
+function redirectToQuizAndAssignmentWorkflow() {
+    const subjectInput = document.getElementById("subjectInterest");
+    const selectedSubject = String(subjectInput?.value || "").trim().toLowerCase();
+    const enrolledItems = resourceLibrary.filter((item) => enrolledResourceIds.has(item.id));
+    const enrolledSubjects = enrolledItems
+        .map((item) => String(item.subject || "").toLowerCase())
+        .filter(Boolean);
+
+    const combinedSubjects = Array.from(new Set([selectedSubject, ...enrolledSubjects].filter(Boolean)));
+    const encodedSubjects = encodeURIComponent(combinedSubjects.join(","));
+    window.location.href = `Assessment.html?from=enrolled&subjects=${encodedSubjects}&next=assignment`;
 }
 
 function getDisplaySubjectName(subject) {
@@ -1403,33 +1478,54 @@ function enrollResourceById(resourceId, showStatus) {
     }
 }
 
+if (consentCheck) {
+    consentCheck.checked = localStorage.getItem(CONSENT_STORAGE_KEY) === "true";
+    syncConsentMessage(consentCheck.checked);
+    consentCheck.addEventListener("change", () => {
+        localStorage.setItem(CONSENT_STORAGE_KEY, consentCheck.checked ? "true" : "false");
+        syncConsentMessage(consentCheck.checked);
+    });
+}
+
 assessmentForm.addEventListener("submit", (event) => {
     event.preventDefault();
+    redirectToQuizAndAssignmentWorkflow();
+    return;
 
     try {
         const grade = "school";
         const subject = document.getElementById("subjectInterest").value;
         const style = document.getElementById("learningStyle").value;
-        const performance = document.getElementById("performance").value;
-        const quizScore = Number(document.getElementById("quizScore").value);
-        const assignmentMarks = Number(document.getElementById("assignmentMarks").value);
+        const performanceInput = document.getElementById("performance");
+        const latestScores = getLatestScoresForSubject(subject);
+        const quizScore = latestScores?.quizScore;
+        const assignmentMarks = latestScores?.assignmentMarks;
         const rawQuery = document.getElementById("textQuery").value.trim();
         const query = rawQuery || `Need help in ${subject} with quiz ${quizScore} and assignment ${assignmentMarks}`;
         const certification = document.getElementById("goalCertification").checked;
         const academicScore = calculateAcademicScore(quizScore, assignmentMarks);
+        const performance = derivePerformanceFromScores(quizScore, assignmentMarks);
+        if (performanceInput) {
+            performanceInput.value = performance;
+        }
 
-        if (!subject || !style || !performance || !Number.isFinite(quizScore) || !Number.isFinite(assignmentMarks)) {
-            assessmentSummary.textContent = "Assessment blocked: fill subject, learning style, performance, quiz score, and assignment marks.";
+        if (!subject || !style) {
+            assessmentSummary.textContent = "Assessment blocked: fill subject and learning style.";
+            return;
+        }
+
+        if (!latestScores || !Number.isFinite(quizScore) || !Number.isFinite(assignmentMarks)) {
+            assessmentSummary.textContent = "Assessment blocked: take quiz and assignment first so marks can be auto-used.";
             return;
         }
 
         if (!consentCheck.checked) {
-            complianceMsg.textContent = "Consent missing: enable consent to generate final recommendations.";
+            syncConsentMessage(false);
             assessmentSummary.textContent = "Assessment blocked: please check the consent box in Compliance Guardrails.";
             return;
         }
 
-        complianceMsg.textContent = "Consent confirmed. Compliance checks passed for recommendation output.";
+        syncConsentMessage(true);
 
         const intent = detectIntent({ query, certification, performance, quizScore, assignmentMarks });
         const userVector = buildUserVector({ subject, style, intent, performance, quizScore, assignmentMarks });
@@ -1655,6 +1751,11 @@ if (resourceFilter) {
     resourceFilter.addEventListener("change", () => {
         renderResourceCatalog();
     });
+}
+
+const subjectInterestInput = document.getElementById("subjectInterest");
+if (subjectInterestInput) {
+    subjectInterestInput.addEventListener("change", syncAssessmentInputsFromHistory);
 }
 
 function initializeDashboardAsync() {

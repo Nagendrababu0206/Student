@@ -15,6 +15,7 @@ const assignmentMarksInput = document.getElementById("assignmentMarks");
 const subjectInterestInput = document.getElementById("subjectInterest");
 
 const ANALYZER_STORAGE_KEY = "eduaiAnalyzerState";
+const CONSENT_STORAGE_KEY = "eduaiConsentAccepted";
 
 const studentEmail = localStorage.getItem("eduaiCurrentUser") || "student@eduai.com";
 const studentName = studentEmail.split("@")[0];
@@ -146,8 +147,18 @@ const RESOURCE_SUBJECT_BY_ID = {
 };
 const urlParams = new URLSearchParams(window.location.search);
 const quizFromEnrolled = urlParams.get("from") === "enrolled";
+const shouldGoToAssignment = urlParams.get("next") === "assignment";
 let activeQuestionProfile = { quiz: [], assignment: [] };
 let activeQuizSubjects = [];
+
+function syncConsentMessage(isChecked) {
+    if (!complianceMsg) {
+        return;
+    }
+    complianceMsg.textContent = isChecked
+        ? "Consent confirmed. Compliance checks passed."
+        : "Consent required before recommendation release.";
+}
 
 function normalizeSubjectForModel(subject) {
     const value = String(subject || "").toLowerCase();
@@ -174,6 +185,17 @@ function lowerCaseSafe(value) {
 
 function calculateAcademicScore(quizScore, assignmentMarks) {
     return Math.round((quizScore * 0.6) + (assignmentMarks * 0.4));
+}
+
+function derivePerformanceFromScores(quizScore, assignmentMarks) {
+    const academicScore = calculateAcademicScore(quizScore, assignmentMarks);
+    if (academicScore >= 80) {
+        return "high";
+    }
+    if (academicScore < 60) {
+        return "low";
+    }
+    return "medium";
 }
 
 function detectIntent({ query, certification, performance, quizScore, assignmentMarks }) {
@@ -482,6 +504,11 @@ function saveAssessmentRecord(record) {
     localStorage.setItem(ANALYZER_STORAGE_KEY, JSON.stringify(payload));
 }
 
+function getWorkflowSubjectsParam() {
+    const raw = String(urlParams.get("subjects") || "").trim();
+    return raw ? encodeURIComponent(raw) : "";
+}
+
 if (subjectInterestInput) {
     if (quizFromEnrolled) {
         const preselected = parseSubjectsFromQuery()[0] || getEnrolledSubjectsFromStorage()[0] || "mathematics";
@@ -493,13 +520,22 @@ if (subjectInterestInput) {
     renderQuestionBanksForSubject(subjectInterestInput.value || "mathematics");
 }
 
+if (consentCheck) {
+    consentCheck.checked = localStorage.getItem(CONSENT_STORAGE_KEY) === "true";
+    syncConsentMessage(consentCheck.checked);
+    consentCheck.addEventListener("change", () => {
+        localStorage.setItem(CONSENT_STORAGE_KEY, consentCheck.checked ? "true" : "false");
+        syncConsentMessage(consentCheck.checked);
+    });
+}
+
 assessmentForm.addEventListener("submit", (event) => {
     event.preventDefault();
 
     const grade = "school";
     const subject = document.getElementById("subjectInterest").value;
     const style = document.getElementById("learningStyle").value;
-    const performance = document.getElementById("performance").value;
+    const performanceInput = document.getElementById("performance");
     const rawQuery = document.getElementById("textQuery").value.trim();
     const certification = document.getElementById("goalCertification").checked;
 
@@ -527,14 +563,18 @@ assessmentForm.addEventListener("submit", (event) => {
 
     const query = rawQuery || `Need help in ${subject} with quiz ${quizScore} and assignment ${assignmentMarks}`;
     const academicScore = calculateAcademicScore(quizScore, assignmentMarks);
+    const performance = derivePerformanceFromScores(quizScore, assignmentMarks);
+    if (performanceInput) {
+        performanceInput.value = performance;
+    }
 
     if (!consentCheck.checked) {
-        complianceMsg.textContent = "Consent missing: enable consent to generate recommendations.";
+        syncConsentMessage(false);
         assessmentSummary.textContent = "Assessment blocked: please check consent.";
         return;
     }
 
-    complianceMsg.textContent = "Consent confirmed. Compliance checks passed.";
+    syncConsentMessage(true);
     const intent = detectIntent({ query, certification, performance, quizScore, assignmentMarks });
     const userVector = buildUserVector({ subject, style, intent, performance, quizScore, assignmentMarks });
     const recommendations = recommendWithML({
@@ -562,6 +602,14 @@ assessmentForm.addEventListener("submit", (event) => {
     assessmentSummary.textContent = `Assessment summary: ${grade} learner, subject ${subject}, ${style} style, ${performance} performance, quiz ${quizScore}%, assignment ${assignmentMarks}%, academic score ${academicScore}%.`;
     renderRecommendationResults(recommendations);
     renderImprovementSuggestions({ subject, performance, quizScore, assignmentMarks, intent, recommendations });
+
+    if (shouldGoToAssignment) {
+        const encodedSubjects = getWorkflowSubjectsParam();
+        const target = encodedSubjects
+            ? `Assignment.html?from=enrolled&subjects=${encodedSubjects}`
+            : "Assignment.html?from=enrolled";
+        window.location.href = target;
+    }
 });
 
 logoutBtn.addEventListener("click", () => {
