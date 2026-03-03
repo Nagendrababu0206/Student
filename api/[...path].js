@@ -1,10 +1,25 @@
 module.exports = async (req, res) => {
   const rawBackendUrl = process.env.BACKEND_URL || "";
-  const backendUrl = String(rawBackendUrl)
+  let backendUrl = String(rawBackendUrl)
     .trim()
     .replace(/\/+$/, "")
     .replace(/\/api\/health$/i, "")
-    .replace(/\/api$/i, "");
+    .replace(/\/api$/i, "")
+    .replace(/\/api\/.*$/i, "");
+
+  try {
+    const parsed = new URL(backendUrl);
+    parsed.pathname = parsed.pathname
+      .replace(/\/+$/, "")
+      .replace(/\/api\/health$/i, "")
+      .replace(/\/api$/i, "")
+      .replace(/\/api\/.*$/i, "");
+    parsed.search = "";
+    parsed.hash = "";
+    backendUrl = parsed.toString().replace(/\/+$/, "");
+  } catch {
+    // Keep regex-normalized backendUrl.
+  }
 
   if (!backendUrl) {
     res.status(500).json({ error: "BACKEND_URL is not configured." });
@@ -54,7 +69,6 @@ module.exports = async (req, res) => {
     let upstream = await fetch(primaryUrl.toString(), requestInit);
     let text = await upstream.text();
     const shouldRetryWithoutApiPrefix =
-      upstream.status === 404 &&
       typeof text === "string" &&
       text.toLowerCase().includes("no static resource api");
 
