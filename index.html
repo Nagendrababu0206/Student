@@ -2,11 +2,124 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="refresh" content="0; url=Frontend.html">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EDUAI</title>
+    <title>Learnnove | Smart Learning Gateway</title>
+    <link rel="stylesheet" href="landingStyle.css">
 </head>
-<body>
-    <p>Redirecting to login page...</p>
+<body id="learnnoveLanding">
+    <div class="bg-glow bg-glow-a"></div>
+    <div class="bg-glow bg-glow-b"></div>
+    <div class="grid-overlay"></div>
+
+    <main class="landing-shell">
+        <section class="hero-card" aria-label="Learnnove landing">
+            <p class="hero-eyebrow">Student Learning Platform</p>
+            <h1>Learnnove</h1>
+            <p class="hero-copy">
+                Build skills with guided quizzes, assignments, and personalized course recommendations.
+                Start your journey in one click.
+            </p>
+
+            <div class="hero-actions">
+                <a class="action-btn action-login" href="Frontend.html">Login</a>
+                <a class="action-btn action-register" href="Signup.html">Register</a>
+            </div>
+
+            <div class="hero-metrics" aria-hidden="true">
+                <article>
+                    <strong>Quizzes</strong>
+                    <span>Adaptive by subject</span>
+                </article>
+                <article>
+                    <strong>Assignments</strong>
+                    <span>Marks-based tracking</span>
+                </article>
+                <article>
+                    <strong>Analyzer</strong>
+                    <span>Smart course suggestions</span>
+                </article>
+            </div>
+        </section>
+
+        <section class="marquee-band" aria-label="Live updates">
+            <div class="marquee-track">
+                <span>Learnnove</span>
+                <span>Quiz + Assignment Analytics</span>
+                <span>Personalized Course Recommendations</span>
+                <span>Progress Tracking Dashboard</span>
+                <span>School Learning Excellence</span>
+                <span>Learnnove</span>
+                <span>Quiz + Assignment Analytics</span>
+                <span>Personalized Course Recommendations</span>
+                <span>Progress Tracking Dashboard</span>
+                <span>School Learning Excellence</span>
+            </div>
+        </section>
+
+        <section class="svg-showcase" aria-label="Learning flow graphic">
+            <svg viewBox="0 0 980 230" role="img" aria-label="Learning workflow diagram">
+                <defs>
+                    <linearGradient id="cardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#0ea5e9"></stop>
+                        <stop offset="100%" stop-color="#22d3ee"></stop>
+                    </linearGradient>
+                </defs>
+
+                <rect x="25" y="55" rx="16" ry="16" width="180" height="95" fill="rgba(15,23,42,0.75)" stroke="rgba(125,211,252,0.7)"></rect>
+                <text x="115" y="95" text-anchor="middle" fill="#e0f2fe" font-size="16" font-weight="700">Enroll</text>
+                <text x="115" y="118" text-anchor="middle" fill="#bae6fd" font-size="13">Select courses</text>
+
+                <rect x="255" y="55" rx="16" ry="16" width="180" height="95" fill="rgba(15,23,42,0.75)" stroke="rgba(125,211,252,0.7)"></rect>
+                <text x="345" y="95" text-anchor="middle" fill="#e0f2fe" font-size="16" font-weight="700">Quiz</text>
+                <text x="345" y="118" text-anchor="middle" fill="#bae6fd" font-size="13">Knowledge check</text>
+
+                <rect x="485" y="55" rx="16" ry="16" width="180" height="95" fill="rgba(15,23,42,0.75)" stroke="rgba(125,211,252,0.7)"></rect>
+                <text x="575" y="95" text-anchor="middle" fill="#e0f2fe" font-size="16" font-weight="700">Assignment</text>
+                <text x="575" y="118" text-anchor="middle" fill="#bae6fd" font-size="13">Marks and points</text>
+
+                <rect x="715" y="55" rx="16" ry="16" width="240" height="95" fill="rgba(15,23,42,0.75)" stroke="rgba(125,211,252,0.7)"></rect>
+                <text x="835" y="95" text-anchor="middle" fill="#e0f2fe" font-size="16" font-weight="700">Analyzer + Recommend</text>
+                <text x="835" y="118" text-anchor="middle" fill="#bae6fd" font-size="13">Personalized learning path</text>
+
+                <line x1="205" y1="102" x2="255" y2="102" stroke="url(#cardGrad)" stroke-width="4"></line>
+                <line x1="435" y1="102" x2="485" y2="102" stroke="url(#cardGrad)" stroke-width="4"></line>
+                <line x1="665" y1="102" x2="715" y2="102" stroke="url(#cardGrad)" stroke-width="4"></line>
+
+                <circle cx="115" cy="42" r="8" fill="#22d3ee"></circle>
+                <circle cx="345" cy="42" r="8" fill="#38bdf8"></circle>
+                <circle cx="575" cy="42" r="8" fill="#60a5fa"></circle>
+                <circle cx="835" cy="42" r="8" fill="#67e8f9"></circle>
+            </svg>
+        </section>
+
+        <section class="welcome-grid" aria-label="Welcome content">
+            <article class="welcome-card">
+                <h2>Welcome to Learnnove</h2>
+                <p>
+                    Learnnove helps students move from confusion to clarity using one connected learning flow.
+                    You practice with quizzes, complete assignments, and get recommendations based on real performance.
+                </p>
+            </article>
+
+            <article class="welcome-card">
+                <h3>How It Works</h3>
+                <ol class="steps-list">
+                    <li>Enroll in your courses and start your learning plan.</li>
+                    <li>Attempt quiz and assignment tasks generated from enrolled subjects.</li>
+                    <li>Track marks, points, and progress inside your dashboard analyzer.</li>
+                    <li>Get focused recommendations to improve weaker areas quickly.</li>
+                </ol>
+            </article>
+
+            <article class="welcome-card">
+                <h3>Why Students Prefer Learnnove</h3>
+                <ul class="value-list">
+                    <li>Performance-driven recommendations, not generic suggestions.</li>
+                    <li>One dashboard for scores, progress, and personalized guidance.</li>
+                    <li>Interactive quiz and assignment experience for continuous improvement.</li>
+                </ul>
+            </article>
+        </section>
+    </main>
 </body>
 </html>
