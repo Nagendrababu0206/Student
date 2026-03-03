@@ -542,7 +542,7 @@ assessmentForm.addEventListener("submit", (event) => {
     const quizEval = evaluateQuestionSet("quiz", activeQuestionProfile.quiz);
     const assignmentEval = evaluateQuestionSet("assignment", activeQuestionProfile.assignment);
 
-    if (!subject || !style || !performance) {
+    if (!subject || !style) {
         assessmentSummary.textContent = "Assessment blocked: fill subject, learning style, and performance.";
         return;
     }

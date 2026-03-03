@@ -286,7 +286,7 @@ if (assignmentForm) {
         const payload = readPayload();
         const assessments = Array.isArray(payload.assessments) ? payload.assessments : [];
         assessments.push({
-            subject: selectedSubjects[0] || normalizeSubject(subject),
+            subject: normalizeSubject(subject),
             quizScore,
             assignmentMarks,
             points,

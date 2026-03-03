@@ -842,6 +842,7 @@ function refreshAnalyzerDashboard() {
     renderWeeklyChart(weekSeries);
     renderPersonalInsights();
     renderAssessmentMarksOverview();
+    syncAssessmentInputsFromHistory();
 }
 
 function detectIntent({ query, certification, performance, quizScore, assignmentMarks }) {
@@ -1762,6 +1763,7 @@ function initializeDashboardAsync() {
     loadAnalyzerState();
     renderEnrolledList();
     refreshAnalyzerDashboard();
+    syncAssessmentInputsFromHistory();
 
     // Catalog rendering is heavier; defer it to keep first paint responsive.
     setTimeout(() => {
