@@ -1,5 +1,9 @@
 const loginForm = document.getElementById("loginForm");
-const IS_LOCAL = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+const IS_LOCAL =
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1" ||
+    window.location.protocol === "file:" ||
+    window.location.hostname === "";
 const LOCAL_API_BASE = "http://localhost:3001";
 let remoteApiBase = "";
 const API_BASE_STORAGE_KEY = "eduaiApiBase";
@@ -42,26 +46,50 @@ async function getApiBase() {
 }
 
 async function postLogin(payload) {
-    // Fast path: same-origin proxy avoids one extra config request on each login.
-    const proxyResponse = await fetch("/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-    });
-
-    // If proxy works (typical deployed flow), use it directly.
-    if (proxyResponse.status !== 404 && proxyResponse.status !== 405) {
-        return proxyResponse;
+    // Local/file mode: call backend directly to avoid missing /api proxy routes.
+    if (IS_LOCAL) {
+        const directLoginApi = `${LOCAL_API_BASE}/api/login`;
+        return fetch(directLoginApi, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
     }
 
-    // Fallback to explicit backend URL resolution for local/non-proxy flows.
-    const apiBase = await getApiBase();
-    const directLoginApi = `${apiBase}/api/login`;
-    return fetch(directLoginApi, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-    });
+    let proxyResponse = null;
+    try {
+        // Fast path: same-origin proxy avoids one extra config request on each login.
+        proxyResponse = await fetch("/api/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        if (proxyResponse.ok) {
+            return proxyResponse;
+        }
+    } catch {
+        // Fallback to direct backend URL below.
+    }
+
+    const shouldFallback =
+        !proxyResponse ||
+        proxyResponse.status === 404 ||
+        proxyResponse.status === 405 ||
+        proxyResponse.status >= 500;
+
+    if (shouldFallback) {
+        const apiBase = await getApiBase();
+        if (apiBase) {
+            const directLoginApi = `${apiBase}/api/login`;
+            return fetch(directLoginApi, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+        }
+    }
+
+    return proxyResponse;
 }
 
 if (loginForm) {
@@ -86,7 +114,7 @@ if (loginForm) {
 
             if (!response.ok) {
                 const payload = await response.json().catch(() => ({}));
-                alert(payload.message || "Login failed.");
+                alert(payload.message || payload.error || "Login failed.");
                 return;
             }
 

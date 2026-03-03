@@ -1,5 +1,11 @@
 module.exports = async (req, res) => {
-  const backendUrl = process.env.BACKEND_URL;
+  const rawBackendUrl = process.env.BACKEND_URL || "";
+  const backendUrl = String(rawBackendUrl)
+    .trim()
+    .replace(/\/+$/, "")
+    .replace(/\/api\/health$/i, "")
+    .replace(/\/api$/i, "");
+
   if (!backendUrl) {
     res.status(500).json({ error: "BACKEND_URL is not configured." });
     return;
@@ -7,19 +13,23 @@ module.exports = async (req, res) => {
 
   const pathParts = Array.isArray(req.query.path) ? req.query.path : [];
   const targetPath = pathParts.join("/");
-  const targetBase = backendUrl.replace(/\/+$/, "");
-  const targetUrl = new URL(`${targetBase}/api/${targetPath}`);
+  const primaryUrl = new URL(`${backendUrl}/api/${targetPath}`);
+  const fallbackUrl = new URL(`${backendUrl}/${targetPath}`);
 
-  Object.entries(req.query).forEach(([key, value]) => {
-    if (key === "path") {
-      return;
-    }
-    if (Array.isArray(value)) {
-      value.forEach((item) => targetUrl.searchParams.append(key, String(item)));
-    } else if (value !== undefined) {
-      targetUrl.searchParams.set(key, String(value));
-    }
-  });
+  const copySearchParams = (url) => {
+    Object.entries(req.query).forEach(([key, value]) => {
+      if (key === "path") {
+        return;
+      }
+      if (Array.isArray(value)) {
+        value.forEach((item) => url.searchParams.append(key, String(item)));
+      } else if (value !== undefined) {
+        url.searchParams.set(key, String(value));
+      }
+    });
+  };
+  copySearchParams(primaryUrl);
+  copySearchParams(fallbackUrl);
 
   const headers = {};
   Object.entries(req.headers || {}).forEach(([key, value]) => {
@@ -41,8 +51,18 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const upstream = await fetch(targetUrl.toString(), requestInit);
-    const text = await upstream.text();
+    let upstream = await fetch(primaryUrl.toString(), requestInit);
+    let text = await upstream.text();
+    const shouldRetryWithoutApiPrefix =
+      upstream.status === 404 &&
+      typeof text === "string" &&
+      text.toLowerCase().includes("no static resource api");
+
+    if (shouldRetryWithoutApiPrefix) {
+      upstream = await fetch(fallbackUrl.toString(), requestInit);
+      text = await upstream.text();
+    }
+
     const contentType = upstream.headers.get("content-type");
 
     if (contentType) {
