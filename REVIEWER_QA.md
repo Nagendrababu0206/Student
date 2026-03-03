@@ -30,9 +30,9 @@ A: It combines student inputs, intent detection, and an ML-style ranking approac
 
 Q: What is intent detection here?
 A: It classifies user goal such as skill assessment, topic exploration, or certification preparation based on text query and indicators.
-
+ Feature vector modeling + cosine similarity sc
 Q: What ML concept did you implement?
-A: Feature vector modeling + cosine similarity scoring to rank courses by relevance.
+A:oring to rank courses by relevance.
 
 Q: Why cosine similarity?
 A: It is simple, explainable, and suitable for profile-to-course matching in small datasets.

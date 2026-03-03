@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EDUAI | Assessment</title>
+    <link rel="stylesheet" href="homeStyle.css">
+</head>
+<body>
+    <header class="topbar">
+        <div>
+            <p class="eyebrow">Student Interface</p>
+            <h1>Assessment Workspace</h1>
+        </div>
+        <div class="profile-chip">
+            <span id="welcomeUser">Student</span>
+            <a href="HomePage.html" class="small-btn">Home</a>
+            <button id="logoutBtn" type="button">Logout</button>
+        </div>
+    </header>
+
+    <main class="dashboard">
+        <section class="workflow-section" aria-label="Learning guidance workflow">
+            <h2>Learning Guidance Workflow</h2>
+            <p class="workflow-sub">Run your assessment here and get recommendations with improvement suggestions.</p>
+
+            <div class="workflow-grid">
+                <article class="panel workflow-panel">
+                    <h3>Assessment Inputs</h3>
+                    <form id="assessmentForm" class="stack-form">
+                        <div class="form-row">
+                            <label for="gradeLevel">Grade Level (School Only)</label>
+                            <select id="gradeLevel" required>
+                                <option value="school" selected>School</option>
+                            </select>
+                        </div>
+
+                        <div class="form-row">
+                            <label for="subjectInterest">Subject Interest</label>
+                            <select id="subjectInterest" required>
+                                <option value="">Select subject</option>
+                                <option value="mathematics">Mathematics</option>
+                                <option value="programming">Programming</option>
+                                <option value="analytics">Data Analytics</option>
+                                <option value="ai">Artificial Intelligence</option>
+                            </select>
+                        </div>
+
+                        <div class="form-row">
+                            <label for="learningStyle">Learning Style</label>
+                            <select id="learningStyle" required>
+                                <option value="">Select style</option>
+                                <option value="visual">Visual</option>
+                                <option value="reading">Reading/Writing</option>
+                                <option value="handson">Hands-on Practice</option>
+                                <option value="mixed">Mixed</option>
+                            </select>
+                        </div>
+
+                        <div class="form-row">
+                            <label for="performance">Current Performance</label>
+                            <select id="performance" required>
+                                <option value="">Select performance</option>
+                                <option value="high">High (80%+)</option>
+                                <option value="medium">Medium (60-79%)</option>
+                                <option value="low">Low (Below 60%)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-row">
+                            <label for="quizScore">Quiz Score (%)</label>
+                            <input type="number" id="quizScore" min="0" max="100" placeholder="e.g. 67" required>
+                        </div>
+                        <div class="form-row">
+                            <label for="assignmentMarks">Assignment Marks (%)</label>
+                            <input type="number" id="assignmentMarks" min="0" max="100" placeholder="e.g. 74" required>
+                        </div>
+
+                        <div class="form-row">
+                            <label for="textQuery">Text Query</label>
+                            <textarea id="textQuery" rows="3" placeholder="Type what you want to learn or improve..."></textarea>
+                        </div>
+
+                        <div class="form-row">
+                            <label class="inline-check">
+                                <input type="checkbox" id="goalCertification">
+                                Certification Preparation
+                            </label>
+                        </div>
+
+                        <label class="inline-check">
+                            <input type="checkbox" id="consentCheck">
+                            I consent to educational profile processing for recommendations.
+                        </label>
+                        <p id="complianceMsg" class="hint">Consent required before recommendation release.</p>
+
+                        <button type="submit">Run Assessment</button>
+                    </form>
+                </article>
+
+                <article class="panel workflow-panel">
+                    <h3>Intent Detection</h3>
+                    <p id="intentResult" class="output-box">Intent will appear after assessment.</p>
+
+                    <h3>Recommendation Engine</h3>
+                    <ul id="recommendationList" class="output-list">
+                        <li>Complete the assessment to view recommendations.</li>
+                    </ul>
+                    <p id="mlModelInfo" class="output-box">ML scoring details will appear after assessment.</p>
+
+                    <h3>Improvement Suggestions</h3>
+                    <ul id="improvementSuggestions" class="output-list">
+                        <li>Run assessment to get targeted improvement suggestions.</li>
+                    </ul>
+                    <p id="assessmentSummary" class="output-box">Assessment summary will appear here.</p>
+                </article>
+            </div>
+        </section>
+    </main>
+
+    <script src="assessment.js"></script>
+</body>
+</html>

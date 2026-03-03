@@ -122,6 +122,10 @@ function readNumber(value) {
     return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function calculateAcademicScore(quizScore, assignmentMarks) {
+    return Math.round((readNumber(quizScore) * 0.6) + (readNumber(assignmentMarks) * 0.4));
+}
+
 function formatRemainingTime(ms) {
     const safeMs = Math.max(0, ms);
     const totalSeconds = Math.floor(safeMs / 1000);
@@ -328,6 +332,7 @@ function loadAnalyzerState() {
         assessmentHistory.push({
             subject: item.subject,
             quizScore: Math.max(0, Math.min(100, readNumber(item.quizScore))),
+            assignmentMarks: Math.max(0, Math.min(100, readNumber(item.assignmentMarks ?? item.quizScore))),
             performance: String(item.performance || "medium"),
             query: String(item.query || ""),
             timestamp: String(item.timestamp || "")
@@ -650,18 +655,33 @@ function refreshAnalyzerDashboard() {
     renderPersonalInsights();
 }
 
-function detectIntent({ query, certification, performance, quizScore }) {
-    const normalizedQuery = query.toLowerCase();
+function detectIntent({ query, certification, performance, quizScore, assignmentMarks }) {
+    const normalizedQuery = lowerCaseSafe(query);
+    const academicScore = calculateAcademicScore(quizScore, assignmentMarks);
 
     if (certification || normalizedQuery.includes("certification") || normalizedQuery.includes("exam")) {
         return "Certification preparation";
     }
 
-    if (performance === "low" || quizScore < 60 || normalizedQuery.includes("improve") || normalizedQuery.includes("weak")) {
+    if (
+        performance === "low"
+        || academicScore < 60
+        || normalizedQuery.includes("improve")
+        || normalizedQuery.includes("weak")
+        || normalizedQuery.includes("struggle")
+        || normalizedQuery.includes("difficult")
+        || normalizedQuery.includes("poor")
+    ) {
         return "Skill assessment";
     }
 
-    if (normalizedQuery.includes("explore") || normalizedQuery.includes("learn about") || normalizedQuery.includes("topic")) {
+    if (
+        normalizedQuery.includes("explore")
+        || normalizedQuery.includes("learn about")
+        || normalizedQuery.includes("topic")
+        || normalizedQuery.includes("introduction")
+        || normalizedQuery.includes("basics")
+    ) {
         return "Topic exploration";
     }
 
@@ -683,18 +703,25 @@ function cosineSimilarity(vecA, vecB) {
     return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
-function buildUserVector({ subject, style, intent, performance, quizScore }) {
+function buildUserVector({ subject, style, intent, performance, quizScore, assignmentMarks }) {
+    const academicScore = calculateAcademicScore(quizScore, assignmentMarks);
     const vector = new Array(10).fill(0);
     vector[featureIndex[subject]] = 1;
-    vector[featureIndex[style]] = 1;
+    if (style === "mixed") {
+        vector[featureIndex.visual] = 0.45;
+        vector[featureIndex.reading] = 0.45;
+        vector[featureIndex.handson] = 0.45;
+    } else if (featureIndex[style] !== undefined) {
+        vector[featureIndex[style]] = 1;
+    }
 
     if (intent === "Certification preparation") {
         vector[featureIndex.certification] = 1;
     }
-    if (performance === "low" || quizScore < 60) {
+    if (performance === "low" || academicScore < 60) {
         vector[featureIndex.lowSupport] = 1;
     }
-    if (performance === "high" || quizScore > 80) {
+    if (performance === "high" || academicScore > 80) {
         vector[featureIndex.advanced] = 1;
     }
     return vector;
@@ -740,10 +767,11 @@ function parseChatToSchoolProfile(message) {
         quizScore = Math.max(0, Math.min(100, Number(scoreMatch[1])));
     }
 
+    const assignmentMarks = latestAssessment?.assignmentMarks ?? quizScore;
     const certification = text.includes("exam") || text.includes("certification");
-    const intent = detectIntent({ query: text, certification, performance, quizScore });
+    const intent = detectIntent({ query: text, certification, performance, quizScore, assignmentMarks });
 
-    return { subject, subjectExplicit, style, performance, quizScore, intent };
+    return { subject, subjectExplicit, style, performance, quizScore, assignmentMarks, intent };
 }
 
 function detectResourceOnlySubject(text) {
@@ -882,6 +910,7 @@ function recordSearchHistoryFromChat(userText) {
     assessmentHistory.push({
         subject: profile.subject,
         quizScore: profile.quizScore,
+        assignmentMarks: profile.assignmentMarks,
         performance: profile.performance,
         query: userText,
         timestamp: new Date().toISOString()
@@ -906,11 +935,12 @@ function getSubjectCourseNames(subject) {
     return ["Foundations of Algebra", "Applied Problem Solving Lab", "School Geometry Essentials", "Fractions and Ratio Mastery"];
 }
 
-function getTargetDifficulty(performance, quizScore) {
-    if (performance === "low" || quizScore < 60) {
+function getTargetDifficulty(performance, quizScore, assignmentMarks) {
+    const academicScore = calculateAcademicScore(quizScore, assignmentMarks);
+    if (performance === "low" || academicScore < 60) {
         return "beginner";
     }
-    if (performance === "high" || quizScore > 80) {
+    if (performance === "high" || academicScore > 80) {
         return "advanced";
     }
     return "intermediate";
@@ -944,9 +974,9 @@ function getCourseMeta(courseName) {
     return { subject: "general", difficulty: "intermediate" };
 }
 
-function recommendWithML({ grade, subject, intent, performance, quizScore, userVector, feedback }) {
+function recommendWithML({ grade, subject, intent, performance, quizScore, assignmentMarks, userVector, feedback }) {
     const gradeBoost = { school: 1, undergraduate: 0.75, postgraduate: 0.5 };
-    const targetDifficulty = getTargetDifficulty(performance, quizScore);
+    const targetDifficulty = getTargetDifficulty(performance, quizScore, assignmentMarks);
 
     return courseCatalog
         .map((course) => {
@@ -1053,15 +1083,35 @@ function detectWeakTopics(subject, query, performance, quizScore) {
     return subjectTopics.slice(1, 3);
 }
 
-function renderImprovementSuggestions({ subject, performance, quizScore, intent, recommendations, query }) {
+function renderImprovementSuggestions({ subject, performance, quizScore, assignmentMarks, intent, recommendations, query }) {
     const tips = [];
+    const academicScore = calculateAcademicScore(quizScore, assignmentMarks);
     const focusCourse = recommendations?.[0]?.name;
-    const weakTopics = detectWeakTopics(subject, query, performance, quizScore);
+    const weakTopics = detectWeakTopics(subject, query, performance, academicScore);
+    const recentSameSubject = assessmentHistory
+        .filter((item) => normalizeSubjectLabel(item.subject) === normalizeSubjectLabel(subject))
+        .slice(-5);
+    const averageRecentAcademic = recentSameSubject.length
+        ? recentSameSubject.reduce((sum, item) => {
+            const histQuiz = Math.max(0, Math.min(100, readNumber(item.quizScore)));
+            const histAssignment = Math.max(0, Math.min(100, readNumber(item.assignmentMarks ?? item.quizScore)));
+            return sum + calculateAcademicScore(histQuiz, histAssignment);
+        }, 0) / recentSameSubject.length
+        : academicScore;
+    const subjectMinutes = Object.entries(resourceStudyMinutes).reduce((sum, [resourceId, minutes]) => {
+        const resource = resourceLibrary.find((item) => item.id === resourceId);
+        if (!resource) {
+            return sum;
+        }
+        return normalizeSubjectLabel(resource.subject) === normalizeSubjectLabel(subject)
+            ? sum + Math.max(0, readNumber(minutes))
+            : sum;
+    }, 0);
 
-    if (performance === "low" || quizScore < 60) {
+    if (performance === "low" || academicScore < 60) {
         tips.push(`Start with 30 minutes daily on ${subject} fundamentals and revise mistakes immediately after each practice set.`);
         tips.push("Take two short quizzes per week and track weak topics to avoid repeating the same errors.");
-    } else if (performance === "high" || quizScore > 80) {
+    } else if (performance === "high" || academicScore > 80) {
         tips.push(`Increase challenge level in ${subject} using timed problem sets and advanced concept questions.`);
         tips.push("Teach one concept weekly to a peer; this improves depth and retention.");
     } else {
@@ -1078,12 +1128,20 @@ function renderImprovementSuggestions({ subject, performance, quizScore, intent,
     if (focusCourse) {
         tips.push(`Complete the top recommendation first: ${focusCourse}, then move to the next ranked course.`);
     }
+    if (averageRecentAcademic < 60) {
+        tips.push(`Your recent ${subject} academic average is ${Math.round(averageRecentAcademic)}%. Focus on remedial modules before advanced topics.`);
+    } else if (averageRecentAcademic >= 75) {
+        tips.push(`Your recent ${subject} academic average is ${Math.round(averageRecentAcademic)}%. You can move to intermediate/advanced challenges.`);
+    }
+    if (subjectMinutes < 120) {
+        tips.push(`You have logged only ${Math.round(subjectMinutes)} minutes in ${subject}. Add 20-30 minutes daily this week.`);
+    }
     if (weakTopics.length) {
         tips.push(`Prioritize weak topics this week: ${weakTopics.join(", ")}.`);
         tips.push(`For each weak topic, practice 10 questions and note at least one mistake pattern.`);
     }
 
-    tips.push("Track weekly improvement by comparing quiz score trends, not one-time scores.");
+    tips.push("Track weekly improvement using combined quiz and assignment score trends.");
 
     improvementSuggestionsList.innerHTML = "";
     tips.slice(0, 5).forEach((tip) => {
@@ -1210,49 +1268,71 @@ function enrollResourceById(resourceId, showStatus) {
 assessmentForm.addEventListener("submit", (event) => {
     event.preventDefault();
 
-    const grade = "school";
-    const subject = document.getElementById("subjectInterest").value;
-    const style = document.getElementById("learningStyle").value;
-    const performance = document.getElementById("performance").value;
-    const quizScore = Number(document.getElementById("quizScore").value);
-    const query = document.getElementById("textQuery").value.trim();
-    const certification = document.getElementById("goalCertification").checked;
+    try {
+        const grade = "school";
+        const subject = document.getElementById("subjectInterest").value;
+        const style = document.getElementById("learningStyle").value;
+        const performance = document.getElementById("performance").value;
+        const quizScore = Number(document.getElementById("quizScore").value);
+        const assignmentMarks = Number(document.getElementById("assignmentMarks").value);
+        const rawQuery = document.getElementById("textQuery").value.trim();
+        const query = rawQuery || `Need help in ${subject} with quiz ${quizScore} and assignment ${assignmentMarks}`;
+        const certification = document.getElementById("goalCertification").checked;
+        const academicScore = calculateAcademicScore(quizScore, assignmentMarks);
 
-    if (!consentCheck.checked) {
-        complianceMsg.textContent = "Consent missing: enable consent to generate final recommendations.";
-        return;
+        if (!subject || !style || !performance || !Number.isFinite(quizScore) || !Number.isFinite(assignmentMarks)) {
+            assessmentSummary.textContent = "Assessment blocked: fill subject, learning style, performance, quiz score, and assignment marks.";
+            return;
+        }
+
+        if (!consentCheck.checked) {
+            complianceMsg.textContent = "Consent missing: enable consent to generate final recommendations.";
+            assessmentSummary.textContent = "Assessment blocked: please check the consent box in Compliance Guardrails.";
+            return;
+        }
+
+        complianceMsg.textContent = "Consent confirmed. Compliance checks passed for recommendation output.";
+
+        const intent = detectIntent({ query, certification, performance, quizScore, assignmentMarks });
+        const userVector = buildUserVector({ subject, style, intent, performance, quizScore, assignmentMarks });
+        const recommendations = recommendWithML({
+            grade,
+            subject,
+            intent,
+            performance,
+            quizScore,
+            assignmentMarks,
+            userVector,
+            feedback: feedbackSignals
+        });
+
+        if (!recommendations.length) {
+            assessmentSummary.textContent = "Assessment ran, but no recommendations were generated. Try changing subject/score.";
+            recommendationList.innerHTML = "<li>No recommendations generated. Adjust inputs and run again.</li>";
+            return;
+        }
+
+        latestAssessment = { grade, subject, style, performance, quizScore, assignmentMarks, query, intent, recommendations };
+        assessmentHistory.push({
+            subject,
+            quizScore,
+            assignmentMarks,
+            performance,
+            query,
+            timestamp: new Date().toISOString()
+        });
+        if (assessmentHistory.length > 100) {
+            assessmentHistory.splice(0, assessmentHistory.length - 100);
+        }
+        saveAnalyzerState();
+
+        intentResult.textContent = `Detected intent: ${intent}`;
+        assessmentSummary.textContent = `Assessment summary: ${grade} learner, subject ${subject}, ${style} style, ${performance} performance, quiz ${quizScore}%, assignment ${assignmentMarks}%, academic score ${academicScore}%.`;
+        renderRecommendationResults(recommendations);
+        renderImprovementSuggestions({ subject, performance, quizScore, assignmentMarks, intent, recommendations, query });
+    } catch (error) {
+        assessmentSummary.textContent = `Assessment failed: ${error instanceof Error ? error.message : "unknown error"}`;
     }
-
-    complianceMsg.textContent = "Consent confirmed. Compliance checks passed for recommendation output.";
-
-    const intent = detectIntent({ query, certification, performance, quizScore });
-    const userVector = buildUserVector({ subject, style, intent, performance, quizScore });
-    const recommendations = recommendWithML({
-        grade,
-        subject,
-        intent,
-        performance,
-        quizScore,
-        userVector,
-        feedback: feedbackSignals
-    });
-    latestAssessment = { grade, subject, style, performance, quizScore, query, intent, recommendations };
-    assessmentHistory.push({
-        subject,
-        quizScore,
-        performance,
-        query,
-        timestamp: new Date().toISOString()
-    });
-    if (assessmentHistory.length > 100) {
-        assessmentHistory.splice(0, assessmentHistory.length - 100);
-    }
-    saveAnalyzerState();
-
-    intentResult.textContent = `Detected intent: ${intent}`;
-    assessmentSummary.textContent = `Assessment summary: ${grade} learner, subject ${subject}, ${style} style, ${performance} performance, quiz ${quizScore}%.`;
-    renderRecommendationResults(recommendations);
-    renderImprovementSuggestions({ subject, performance, quizScore, intent, recommendations, query });
 });
 
 submitFeedbackBtn.addEventListener("click", () => {
@@ -1277,7 +1357,8 @@ submitFeedbackBtn.addEventListener("click", () => {
             style: latestAssessment.style,
             intent: latestAssessment.intent,
             performance: latestAssessment.performance,
-            quizScore: latestAssessment.quizScore
+            quizScore: latestAssessment.quizScore,
+            assignmentMarks: latestAssessment.assignmentMarks ?? latestAssessment.quizScore
         });
         const tunedRecommendations = recommendWithML({
             grade: latestAssessment.grade,
@@ -1285,6 +1366,7 @@ submitFeedbackBtn.addEventListener("click", () => {
             intent: latestAssessment.intent,
             performance: latestAssessment.performance,
             quizScore: latestAssessment.quizScore,
+            assignmentMarks: latestAssessment.assignmentMarks ?? latestAssessment.quizScore,
             userVector,
             feedback: feedbackSignals
         });
@@ -1294,6 +1376,7 @@ submitFeedbackBtn.addEventListener("click", () => {
             subject: latestAssessment.subject,
             performance: latestAssessment.performance,
             quizScore: latestAssessment.quizScore,
+            assignmentMarks: latestAssessment.assignmentMarks ?? latestAssessment.quizScore,
             intent: latestAssessment.intent,
             recommendations: tunedRecommendations,
             query: latestAssessment.query
@@ -1399,10 +1482,22 @@ if (resourceFilter) {
     });
 }
 
-loadAnalyzerState();
-renderResourceCatalog();
-renderEnrolledList();
-refreshAnalyzerDashboard();
+function initializeDashboardAsync() {
+    loadAnalyzerState();
+    renderEnrolledList();
+    refreshAnalyzerDashboard();
+
+    // Catalog rendering is heavier; defer it to keep first paint responsive.
+    setTimeout(() => {
+        renderResourceCatalog();
+    }, 0);
+}
+
+if (typeof window.requestAnimationFrame === "function") {
+    window.requestAnimationFrame(initializeDashboardAsync);
+} else {
+    setTimeout(initializeDashboardAsync, 0);
+}
 
 function addChatMessage(role, text) {
     const row = document.createElement("div");
@@ -1438,6 +1533,7 @@ function buildChatResponse(userText) {
         intent: profile.intent,
         performance: profile.performance,
         quizScore: profile.quizScore,
+        assignmentMarks: profile.assignmentMarks,
         userVector
     });
     const queryTuned = applyQuerySignalsToRanked(ranked, lower);
