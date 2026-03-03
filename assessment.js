@@ -135,6 +135,19 @@ const questionBank = {
         ]
     }
 };
+const RESOURCE_SUBJECT_BY_ID = {
+    r1: "mathematics", r2: "mathematics", r9: "mathematics", r10: "mathematics",
+    r3: "programming", r4: "programming", r11: "programming", r12: "programming",
+    r5: "analytics", r6: "analytics", r13: "analytics", r14: "analytics",
+    r7: "ai", r8: "ai", r15: "ai", r16: "ai",
+    r17: "general", r18: "general", r19: "general",
+    r20: "social", r21: "english", r22: "english", r23: "science",
+    r24: "certification", r25: "certification", r26: "certification"
+};
+const urlParams = new URLSearchParams(window.location.search);
+const quizFromEnrolled = urlParams.get("from") === "enrolled";
+let activeQuestionProfile = { quiz: [], assignment: [] };
+let activeQuizSubjects = [];
 
 function normalizeSubjectForModel(subject) {
     const value = String(subject || "").toLowerCase();
@@ -362,15 +375,92 @@ function getQuestionProfile(subject) {
     return questionBank[normalized] || questionBank.mathematics;
 }
 
+function parseSubjectsFromQuery() {
+    const raw = String(urlParams.get("subjects") || "").trim();
+    if (!raw) {
+        return [];
+    }
+    return raw
+        .split(",")
+        .map((item) => normalizeSubjectForQuestions(item))
+        .filter((item) => Boolean(questionBank[item]));
+}
+
+function getEnrolledSubjectsFromStorage() {
+    let payload = {};
+    try {
+        payload = JSON.parse(localStorage.getItem(ANALYZER_STORAGE_KEY) || "{}");
+    } catch {
+        payload = {};
+    }
+
+    const enrolledIds = Array.isArray(payload.enrolledIds) ? payload.enrolledIds : [];
+    return enrolledIds
+        .map((id) => normalizeSubjectForQuestions(RESOURCE_SUBJECT_BY_ID[id]))
+        .filter((subject) => Boolean(questionBank[subject]));
+}
+
+function buildQuestionsBySubjects(subjects, type, count) {
+    const uniqueSubjects = Array.from(new Set(subjects));
+    const selected = [];
+    let cursor = 0;
+
+    while (selected.length < count && uniqueSubjects.length > 0) {
+        const currentSubject = uniqueSubjects[cursor % uniqueSubjects.length];
+        const bank = questionBank[currentSubject]?.[type] || [];
+        const indexInBank = Math.floor(cursor / uniqueSubjects.length);
+        if (indexInBank < bank.length) {
+            selected.push(bank[indexInBank]);
+        }
+        cursor += 1;
+        if (cursor > 40) {
+            break;
+        }
+    }
+
+    if (selected.length < count && uniqueSubjects.length > 0) {
+        const fallbackBank = questionBank[uniqueSubjects[0]]?.[type] || [];
+        for (let i = 0; i < fallbackBank.length && selected.length < count; i += 1) {
+            if (!selected.includes(fallbackBank[i])) {
+                selected.push(fallbackBank[i]);
+            }
+        }
+    }
+
+    return selected.slice(0, count);
+}
+
+function getQuestionProfileFromEnrolled(subject) {
+    const querySubjects = parseSubjectsFromQuery();
+    const storageSubjects = getEnrolledSubjectsFromStorage();
+    const normalizedSubject = normalizeSubjectForQuestions(subject);
+    const merged = Array.from(new Set([...querySubjects, ...storageSubjects, normalizedSubject]))
+        .filter((item) => Boolean(questionBank[item]));
+
+    const effectiveSubjects = merged.length ? merged : ["mathematics"];
+    activeQuizSubjects = effectiveSubjects;
+    return {
+        quiz: buildQuestionsBySubjects(effectiveSubjects, "quiz", 3),
+        assignment: buildQuestionsBySubjects(effectiveSubjects, "assignment", 3)
+    };
+}
+
 function renderQuestionBanksForSubject(subject) {
-    const profile = getQuestionProfile(subject);
-    renderQuestionSet(quizQuestionSet, "quiz", profile.quiz);
-    renderQuestionSet(assignmentQuestionSet, "assignment", profile.assignment);
+    activeQuestionProfile = quizFromEnrolled
+        ? getQuestionProfileFromEnrolled(subject)
+        : getQuestionProfile(subject);
+
+    renderQuestionSet(quizQuestionSet, "quiz", activeQuestionProfile.quiz);
+    renderQuestionSet(assignmentQuestionSet, "assignment", activeQuestionProfile.assignment);
     if (quizScoreInput) {
         quizScoreInput.value = "";
     }
     if (assignmentMarksInput) {
         assignmentMarksInput.value = "";
+    }
+
+    if (quizFromEnrolled && activeQuizSubjects.length) {
+        assessmentSummary.textContent = `Quiz generated from enrolled subjects: ${activeQuizSubjects.join(", ")}.`;
     }
 }
 
@@ -393,6 +483,10 @@ function saveAssessmentRecord(record) {
 }
 
 if (subjectInterestInput) {
+    if (quizFromEnrolled) {
+        const preselected = parseSubjectsFromQuery()[0] || getEnrolledSubjectsFromStorage()[0] || "mathematics";
+        subjectInterestInput.value = preselected;
+    }
     subjectInterestInput.addEventListener("change", () => {
         renderQuestionBanksForSubject(subjectInterestInput.value);
     });
@@ -409,9 +503,8 @@ assessmentForm.addEventListener("submit", (event) => {
     const rawQuery = document.getElementById("textQuery").value.trim();
     const certification = document.getElementById("goalCertification").checked;
 
-    const profile = getQuestionProfile(subject);
-    const quizEval = evaluateQuestionSet("quiz", profile.quiz);
-    const assignmentEval = evaluateQuestionSet("assignment", profile.assignment);
+    const quizEval = evaluateQuestionSet("quiz", activeQuestionProfile.quiz);
+    const assignmentEval = evaluateQuestionSet("assignment", activeQuestionProfile.assignment);
 
     if (!subject || !style || !performance) {
         assessmentSummary.textContent = "Assessment blocked: fill subject, learning style, and performance.";

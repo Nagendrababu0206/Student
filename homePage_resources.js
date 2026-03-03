@@ -26,6 +26,8 @@ const enrolledList = document.getElementById("enrolledList");
 const studyResourceSelect = document.getElementById("studyResourceSelect");
 const studyMinutesInput = document.getElementById("studyMinutesInput");
 const logStudyTimeBtn = document.getElementById("logStudyTime");
+const takeCourseQuizBtn = document.getElementById("takeCourseQuizBtn");
+const takeCourseAssignmentBtn = document.getElementById("takeCourseAssignmentBtn");
 const studyLogStatus = document.getElementById("studyLogStatus");
 const completionRate = document.getElementById("completionRate");
 const weeklyHours = document.getElementById("weeklyHours");
@@ -1610,6 +1612,42 @@ if (logStudyTimeBtn) {
             studyLogStatus.textContent = `Logged ${minutes} minutes for ${resource?.title || "selected course"}.`;
         }
         engagementStatus.textContent = "Study time logged. Analyzer updated from enrolled-course activity.";
+    });
+}
+
+if (takeCourseQuizBtn) {
+    takeCourseQuizBtn.addEventListener("click", () => {
+        const enrolledItems = resourceLibrary.filter((item) => enrolledResourceIds.has(item.id));
+        if (!enrolledItems.length) {
+            if (studyLogStatus) {
+                studyLogStatus.textContent = "Enroll in at least one course to generate quiz questions.";
+            }
+            return;
+        }
+
+        const subjects = enrolledItems
+            .map((item) => String(item.subject || "").toLowerCase())
+            .filter(Boolean);
+        const encodedSubjects = encodeURIComponent(Array.from(new Set(subjects)).join(","));
+        window.location.href = `Assessment.html?from=enrolled&subjects=${encodedSubjects}`;
+    });
+}
+
+if (takeCourseAssignmentBtn) {
+    takeCourseAssignmentBtn.addEventListener("click", () => {
+        const enrolledItems = resourceLibrary.filter((item) => enrolledResourceIds.has(item.id));
+        if (!enrolledItems.length) {
+            if (studyLogStatus) {
+                studyLogStatus.textContent = "Enroll in at least one course to generate assignment questions.";
+            }
+            return;
+        }
+
+        const subjects = enrolledItems
+            .map((item) => String(item.subject || "").toLowerCase())
+            .filter(Boolean);
+        const encodedSubjects = encodeURIComponent(Array.from(new Set(subjects)).join(","));
+        window.location.href = `Assignment.html?from=enrolled&subjects=${encodedSubjects}`;
     });
 }
 

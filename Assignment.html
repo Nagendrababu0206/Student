@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EDUAI | Assignment</title>
+    <link rel="stylesheet" href="homeStyle.css">
+</head>
+<body>
+    <header class="topbar">
+        <div>
+            <p class="eyebrow">Student Interface</p>
+            <h1>Assignment Workspace</h1>
+        </div>
+        <div class="profile-chip">
+            <span id="welcomeUser">Student</span>
+            <a href="HomePage.html" class="small-btn">Home</a>
+            <a href="Assessment.html" class="small-btn">Assessment</a>
+            <button id="logoutBtn" type="button">Logout</button>
+        </div>
+    </header>
+
+    <main class="dashboard">
+        <section class="workflow-section" aria-label="Assignment evaluation">
+            <h2>Assignment Evaluation</h2>
+            <p class="workflow-sub">Assignment marks are calculated here and synced to analyzer/dashboard.</p>
+
+            <article class="panel workflow-panel">
+                <form id="assignmentForm" class="stack-form">
+                    <div class="form-row">
+                        <label for="subjectInterest">Subject</label>
+                        <select id="subjectInterest" required>
+                            <option value="">Select subject</option>
+                            <option value="mathematics">Mathematics</option>
+                            <option value="programming">Programming</option>
+                            <option value="analytics">Data Analytics</option>
+                            <option value="ai">Artificial Intelligence</option>
+                            <option value="english">English</option>
+                            <option value="science">Science</option>
+                            <option value="social">Social</option>
+                            <option value="physics">Physics</option>
+                            <option value="chemistry">Chemistry</option>
+                        </select>
+                    </div>
+
+                    <div class="form-row">
+                        <label for="quizScore">Quiz Score (%)</label>
+                        <input type="number" id="quizScore" readonly>
+                    </div>
+
+                    <div class="form-row">
+                        <label for="assignmentMarks">Assignment Marks (%)</label>
+                        <input type="number" id="assignmentMarks" readonly>
+                    </div>
+
+                    <article class="panel">
+                        <h4>Assignment Questions</h4>
+                        <p class="hint">Questions are prepared using enrolled-course subjects.</p>
+                        <div id="assignmentQuestionSet" class="stack-form"></div>
+                    </article>
+
+                    <div class="form-row">
+                        <label class="inline-check">
+                            <input type="checkbox" id="consentCheck">
+                            I consent to educational profile processing for recommendations.
+                        </label>
+                    </div>
+
+                    <button type="submit">Calculate Assignment Marks</button>
+                </form>
+            </article>
+
+            <article class="panel workflow-panel">
+                <h3>Assignment Result</h3>
+                <p id="assignmentSummary" class="output-box">Complete assignment to calculate marks.</p>
+            </article>
+        </section>
+    </main>
+
+    <script src="assignmentPage.js"></script>
+</body>
+</html>
