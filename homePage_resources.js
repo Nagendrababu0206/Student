@@ -1490,8 +1490,6 @@ if (consentCheck) {
 
 assessmentForm.addEventListener("submit", (event) => {
     event.preventDefault();
-    redirectToQuizAndAssignmentWorkflow();
-    return;
 
     try {
         const grade = "school";
