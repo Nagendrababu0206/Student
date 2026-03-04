@@ -3,7 +3,7 @@
 Spring Boot backend for login, registration, and school-only recommendation chatbot.
 
 ## Tech
-- Java 17
+- Java 21
 - Spring Boot 3
 - Maven
 - PostgreSQL
