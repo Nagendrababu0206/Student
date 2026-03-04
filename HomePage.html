@@ -339,21 +339,57 @@
     </main>
 
     <script>
-        // Load heavy dashboard logic after first paint to reduce post-login wait.
-        (function loadHomeResources() {
-            const inject = () => {
-                const script = document.createElement("script");
-                script.src = "homePage_resources.js";
-                script.defer = true;
-                document.body.appendChild(script);
-            };
-            if (typeof window.requestAnimationFrame === "function") {
-                window.requestAnimationFrame(() => setTimeout(inject, 0));
-            } else {
-                setTimeout(inject, 0);
+        // Fast path: show latest marks immediately from localStorage before heavy script loads.
+        (function renderLatestMarksImmediately() {
+            const latestEl = document.getElementById("latestAssessmentMarks");
+            const summaryEl = document.getElementById("subjectMarksSummary");
+            if (!latestEl || !summaryEl) {
+                return;
             }
+
+            function readNumber(value) {
+                const parsed = Number(value);
+                return Number.isFinite(parsed) ? parsed : 0;
+            }
+
+            function calculateAcademicScore(quizScore, assignmentMarks) {
+                return Math.round((readNumber(quizScore) * 0.6) + (readNumber(assignmentMarks) * 0.4));
+            }
+
+            function render() {
+                let payload = {};
+                try {
+                    payload = JSON.parse(localStorage.getItem("eduaiAnalyzerState") || "{}");
+                } catch {
+                    payload = {};
+                }
+
+                const assessments = Array.isArray(payload.assessments) ? payload.assessments : [];
+                if (!assessments.length) {
+                    latestEl.textContent = "Latest marks: pending assessment.";
+                    summaryEl.innerHTML = "<li>No assessment scores available yet.</li>";
+                    return;
+                }
+
+                const latest = assessments[assessments.length - 1] || {};
+                const subject = String(latest.subject || "general");
+                const quiz = Math.max(0, Math.min(100, readNumber(latest.quizScore)));
+                const assignment = Math.max(0, Math.min(100, readNumber(latest.assignmentMarks ?? latest.quizScore)));
+                const academic = calculateAcademicScore(quiz, assignment);
+                latestEl.textContent = `Latest marks: ${subject} | Quiz ${Math.round(quiz)}% | Assignment ${Math.round(assignment)}% | Academic ${Math.round(academic)}%.`;
+            }
+
+            render();
+            window.addEventListener("pageshow", render);
+            window.addEventListener("storage", (event) => {
+                if (event.key === "eduaiAnalyzerState") {
+                    render();
+                }
+            });
         })();
     </script>
+
+    <script src="homePage_resources.js" defer></script>
 </body>
 </html>
 

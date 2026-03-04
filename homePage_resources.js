@@ -85,6 +85,7 @@ const focusSession = {
     awayStartedAt: 0
 };
 let focusIntervalId = null;
+let analyzerSyncInFlight = false;
 
 function syncConsentMessage(isChecked) {
     if (!complianceMsg) {
@@ -313,6 +314,15 @@ function saveAnalyzerState() {
     localStorage.setItem(ANALYZER_STORAGE_KEY, JSON.stringify(payload));
 }
 
+function resetAnalyzerStateInMemory() {
+    enrolledResourceIds.clear();
+    assessmentHistory.length = 0;
+
+    Object.keys(resourceStudyMinutes).forEach((key) => delete resourceStudyMinutes[key]);
+    Object.keys(resourceEnrollmentMeta).forEach((key) => delete resourceEnrollmentMeta[key]);
+    Object.keys(dailyStudyMinutes).forEach((key) => delete dailyStudyMinutes[key]);
+}
+
 function loadAnalyzerState() {
     let payload = null;
     try {
@@ -375,6 +385,23 @@ function loadAnalyzerState() {
     });
 }
 
+function reloadAnalyzerStateAndRefresh(source) {
+    if (analyzerSyncInFlight) {
+        return;
+    }
+    analyzerSyncInFlight = true;
+    try {
+        resetAnalyzerStateInMemory();
+        loadAnalyzerState();
+        renderEnrolledList();
+        refreshAnalyzerDashboard();
+        syncAssessmentInputsFromHistory();
+        refreshRecommendationsFromLatestMarks(source);
+    } finally {
+        analyzerSyncInFlight = false;
+    }
+}
+
 const featureIndex = {
     mathematics: 0,
     programming: 1,
@@ -425,6 +452,31 @@ const courseCatalog = [
     { name: "School Study Skills Bootcamp", vector: [0.2, 0.2, 0.3, 0.2, 0.2, 0.5, 0.4, 0.3, 0.8, 0.2], level: "school" },
     { name: "Exam Revision Sprint", vector: [0.2, 0.3, 0.4, 0.2, 0.2, 0.4, 0.4, 0.8, 0.6, 0.3], level: "school" }
 ];
+const RECOMMENDATION_LIMIT = 5;
+const recommendationCache = new Map();
+const rankedCourseCatalog = courseCatalog.map((course) => {
+    const lowerName = course.name.toLowerCase();
+    return {
+        ...course,
+        lowerName,
+        hasCertification: course.name.includes("Certification"),
+        hasDiagnostic: course.name.includes("Diagnostic"),
+        hasBeginner: course.name.includes("Beginner"),
+        hasFoundations: course.name.includes("Foundations"),
+        hasMentor: course.name.includes("Mentor"),
+        hasProjects: course.name.includes("Projects"),
+        hasMachineLearning: course.name.includes("Machine Learning"),
+        hasConcept: course.name.includes("Concept"),
+        hasVideos: course.name.includes("Videos")
+    };
+});
+const courseNameLookupBySubject = {
+    mathematics: new Set(getSubjectCourseNames("mathematics")),
+    programming: new Set(getSubjectCourseNames("programming")),
+    analytics: new Set(getSubjectCourseNames("analytics")),
+    ai: new Set(getSubjectCourseNames("ai"))
+};
+const courseMetaByName = new Map(courseCatalog.map((course) => [course.name, getCourseMeta(course.name)]));
 
 const resourceLibrary = [
     { id: "r1", subject: "mathematics", title: "Algebra Foundations", type: "Video Module", difficulty: "Beginner", description: "Core algebra concepts with worked school-level examples.", youtube: "https://www.youtube.com/watch?v=AUqeb9Z3y3k" },
@@ -508,6 +560,95 @@ function getLatestScoresForSubject(subject) {
         return { quizScore, assignmentMarks, points, timestamp: String(item.timestamp || "") };
     }
     return null;
+}
+
+function getLatestAssessmentRecord() {
+    if (!assessmentHistory.length) {
+        return null;
+    }
+    return assessmentHistory[assessmentHistory.length - 1];
+}
+
+function refreshRecommendationsFromLatestMarks(source) {
+    const subjectInput = document.getElementById("subjectInterest");
+    const styleInput = document.getElementById("learningStyle");
+    const performanceInput = document.getElementById("performance");
+    const queryInput = document.getElementById("textQuery");
+    const certificationInput = document.getElementById("goalCertification");
+    const latestRecord = getLatestAssessmentRecord();
+
+    if (!subjectInput || !styleInput) {
+        return false;
+    }
+
+    if (!subjectInput.value && latestRecord?.subject) {
+        subjectInput.value = String(latestRecord.subject).toLowerCase();
+    }
+    if (!styleInput.value) {
+        styleInput.value = latestAssessment?.style || "mixed";
+    }
+
+    const subject = subjectInput.value;
+    const style = styleInput.value;
+    if (!subject || !style) {
+        return false;
+    }
+
+    const latestScores = getLatestScoresForSubject(subject);
+    if (!latestScores) {
+        return false;
+    }
+
+    if (!consentCheck?.checked) {
+        syncConsentMessage(false);
+        return false;
+    }
+
+    const grade = "school";
+    const quizScore = latestScores.quizScore;
+    const assignmentMarks = latestScores.assignmentMarks;
+    const performance = derivePerformanceFromScores(quizScore, assignmentMarks);
+    const rawQuery = queryInput?.value?.trim() || "";
+    const query = rawQuery || `Need help in ${subject} with quiz ${quizScore} and assignment ${assignmentMarks}`;
+    const certification = Boolean(certificationInput?.checked);
+    const intent = detectIntent({ query, certification, performance, quizScore, assignmentMarks });
+    const userVector = buildUserVector({ subject, style, intent, performance, quizScore, assignmentMarks });
+    const recommendations = recommendWithML({
+        grade,
+        subject,
+        intent,
+        performance,
+        quizScore,
+        assignmentMarks,
+        userVector,
+        feedback: feedbackSignals
+    });
+
+    if (!recommendations.length) {
+        return false;
+    }
+
+    if (performanceInput) {
+        performanceInput.value = performance;
+    }
+
+    latestAssessment = {
+        grade,
+        subject,
+        style,
+        performance,
+        quizScore,
+        assignmentMarks,
+        query,
+        intent,
+        recommendations
+    };
+
+    intentResult.textContent = `Detected intent: ${intent}`;
+    assessmentSummary.textContent = `Recommendations auto-updated from latest marks (${source}): quiz ${Math.round(quizScore)}%, assignment ${Math.round(assignmentMarks)}%, academic ${Math.round(calculateAcademicScore(quizScore, assignmentMarks))}%.`;
+    renderRecommendationResults(recommendations);
+    renderImprovementSuggestions({ subject, performance, quizScore, assignmentMarks, intent, recommendations, query });
+    return true;
 }
 
 function syncAssessmentInputsFromHistory() {
@@ -1159,19 +1300,19 @@ function getTargetDifficulty(performance, quizScore, assignmentMarks) {
 }
 
 function getCourseMeta(courseName) {
-    if (getSubjectCourseNames("mathematics").includes(courseName)) {
+    if (courseNameLookupBySubject.mathematics.has(courseName)) {
         return { subject: "mathematics", difficulty: "beginner" };
     }
-    if (getSubjectCourseNames("programming").includes(courseName)) {
+    if (courseNameLookupBySubject.programming.has(courseName)) {
         return {
             subject: "programming",
             difficulty: courseName.includes("Data Structures") ? "intermediate" : "beginner"
         };
     }
-    if (getSubjectCourseNames("analytics").includes(courseName)) {
+    if (courseNameLookupBySubject.analytics.has(courseName)) {
         return { subject: "analytics", difficulty: "intermediate" };
     }
-    if (getSubjectCourseNames("ai").includes(courseName)) {
+    if (courseNameLookupBySubject.ai.has(courseName)) {
         return {
             subject: "ai",
             difficulty: courseName.includes("Machine Learning") ? "advanced" : "intermediate"
@@ -1190,76 +1331,105 @@ function recommendWithML({ grade, subject, intent, performance, quizScore, assig
     const gradeBoost = { school: 1, undergraduate: 0.75, postgraduate: 0.5 };
     const targetDifficulty = getTargetDifficulty(performance, quizScore, assignmentMarks);
     const mappedSubject = normalizeSubjectForModel(subject);
+    const concern = feedback?.concern || "none";
+    const freeText = (feedback?.text || "").toLowerCase();
+    const targetSubjectPrefix = concern === "relevance"
+        ? String(latestAssessment?.subject || "").slice(0, 4).toLowerCase()
+        : "";
+    const cacheKey = [
+        grade,
+        mappedSubject,
+        intent,
+        performance,
+        targetDifficulty,
+        concern,
+        freeText,
+        targetSubjectPrefix,
+        userVector.join("|")
+    ].join("::");
+    const cached = recommendationCache.get(cacheKey);
+    if (cached) {
+        return cached.map((item) => ({ ...item }));
+    }
 
-    return courseCatalog
-        .map((course) => {
-            let score = cosineSimilarity(userVector, course.vector);
-            const meta = getCourseMeta(course.name);
+    const rankedTop = [];
+    for (const course of rankedCourseCatalog) {
+        let score = cosineSimilarity(userVector, course.vector);
+        const meta = courseMetaByName.get(course.name) || { subject: "general", difficulty: "intermediate" };
 
-            if (course.level === grade) {
-                score += gradeBoost[grade] * 0.2;
-            } else if (course.level === "postgraduate") {
-                score -= 0.18;
-            }
-            if (meta.subject === mappedSubject) {
-                score += 0.35;
-            } else if (meta.subject !== "general") {
-                score -= 0.2;
-            }
-            if (meta.difficulty === targetDifficulty) {
-                score += 0.16;
-            } else if (targetDifficulty === "beginner" && meta.difficulty === "advanced") {
-                score -= 0.14;
-            }
-            if (intent === "Certification preparation" && course.name.includes("Certification")) {
+        if (course.level === grade) {
+            score += gradeBoost[grade] * 0.2;
+        } else if (course.level === "postgraduate") {
+            score -= 0.18;
+        }
+        if (meta.subject === mappedSubject) {
+            score += 0.35;
+        } else if (meta.subject !== "general") {
+            score -= 0.2;
+        }
+        if (meta.difficulty === targetDifficulty) {
+            score += 0.16;
+        } else if (targetDifficulty === "beginner" && meta.difficulty === "advanced") {
+            score -= 0.14;
+        }
+        if (intent === "Certification preparation" && course.hasCertification) {
+            score += 0.25;
+        }
+        if (intent === "Skill assessment" && course.hasDiagnostic) {
+            score += 0.2;
+        }
+
+        if (concern === "difficulty") {
+            if (course.hasBeginner || course.hasFoundations || course.hasDiagnostic) {
                 score += 0.25;
             }
-            if (intent === "Skill assessment" && course.name.includes("Diagnostic")) {
+            if (course.hasMachineLearning || course.hasProjects) {
+                score -= 0.15;
+            }
+        } else if (concern === "relevance") {
+            if (targetSubjectPrefix && course.lowerName.includes(targetSubjectPrefix)) {
                 score += 0.2;
             }
-            
-
-            // Feedback-aware tuning to improve relevance.
-            if (feedback?.concern === "difficulty") {
-                if (course.name.includes("Beginner") || course.name.includes("Foundations") || course.name.includes("Diagnostic")) {
-                    score += 0.25;
-                }
-                if (course.name.includes("Machine Learning") || course.name.includes("Projects")) {
-                    score -= 0.15;
-                }
-            } else if (feedback?.concern === "relevance") {
-                const targetSubject = latestAssessment?.subject || "";
-                if (targetSubject && course.name.toLowerCase().includes(targetSubject.slice(0, 4))) {
-                    score += 0.2;
-                }
-            } else if (feedback?.concern === "clarity") {
-                if (course.name.includes("Concept") || course.name.includes("Foundations") || course.name.includes("Videos")) {
-                    score += 0.22;
-                }
-            } else if (feedback?.concern === "pace") {
-                if (course.name.includes("Mentor") || course.name.includes("Beginner") || course.name.includes("Diagnostic")) {
-                    score += 0.24;
-                }
-                if (course.name.includes("Projects")) {
-                    score -= 0.12;
-                }
+        } else if (concern === "clarity") {
+            if (course.hasConcept || course.hasFoundations || course.hasVideos) {
+                score += 0.22;
             }
-
-            const freeText = (feedback?.text || "").toLowerCase();
-            if (freeText.includes("math") && course.name.toLowerCase().includes("algebra")) {
-                score += 0.12;
+        } else if (concern === "pace") {
+            if (course.hasMentor || course.hasBeginner || course.hasDiagnostic) {
+                score += 0.24;
             }
-            if (freeText.includes("program") && course.name.toLowerCase().includes("program")) {
-                score += 0.12;
+            if (course.hasProjects) {
+                score -= 0.12;
             }
+        }
 
-            return {
-                name: course.name,
-                score: Math.max(0, Math.min(score, 1.9))
-            };
-        })
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 5);
+        if (freeText.includes("math") && course.lowerName.includes("algebra")) {
+            score += 0.12;
+        }
+        if (freeText.includes("program") && course.lowerName.includes("program")) {
+            score += 0.12;
+        }
+
+        const result = { name: course.name, score: Math.max(0, Math.min(score, 1.9)) };
+        let insertAt = rankedTop.length;
+        while (insertAt > 0 && rankedTop[insertAt - 1].score < result.score) {
+            insertAt -= 1;
+        }
+        if (insertAt < RECOMMENDATION_LIMIT) {
+            rankedTop.splice(insertAt, 0, result);
+            if (rankedTop.length > RECOMMENDATION_LIMIT) {
+                rankedTop.pop();
+            }
+        }
+    }
+
+    const output = rankedTop.slice(0, RECOMMENDATION_LIMIT);
+    recommendationCache.set(cacheKey, output.map((item) => ({ ...item })));
+    if (recommendationCache.size > 200) {
+        const firstKey = recommendationCache.keys().next().value;
+        recommendationCache.delete(firstKey);
+    }
+    return output;
 }
 
 function renderRecommendationResults(recommendations) {
@@ -1485,6 +1655,9 @@ if (consentCheck) {
     consentCheck.addEventListener("change", () => {
         localStorage.setItem(CONSENT_STORAGE_KEY, consentCheck.checked ? "true" : "false");
         syncConsentMessage(consentCheck.checked);
+        if (consentCheck.checked) {
+            refreshRecommendationsFromLatestMarks("consent enabled");
+        }
     });
 }
 
@@ -1754,14 +1927,14 @@ if (resourceFilter) {
 
 const subjectInterestInput = document.getElementById("subjectInterest");
 if (subjectInterestInput) {
-    subjectInterestInput.addEventListener("change", syncAssessmentInputsFromHistory);
+    subjectInterestInput.addEventListener("change", () => {
+        syncAssessmentInputsFromHistory();
+        refreshRecommendationsFromLatestMarks("subject change");
+    });
 }
 
 function initializeDashboardAsync() {
-    loadAnalyzerState();
-    renderEnrolledList();
-    refreshAnalyzerDashboard();
-    syncAssessmentInputsFromHistory();
+    reloadAnalyzerStateAndRefresh("latest saved marks");
 
     // Catalog rendering is heavier; defer it to keep first paint responsive.
     setTimeout(() => {
@@ -1939,6 +2112,23 @@ window.addEventListener("blur", () => {
 
 window.addEventListener("focus", () => {
     registerFocusReturn();
+    reloadAnalyzerStateAndRefresh("window focus");
+});
+
+window.addEventListener("pageshow", () => {
+    reloadAnalyzerStateAndRefresh("page return");
+});
+
+document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) {
+        reloadAnalyzerStateAndRefresh("tab visible");
+    }
+});
+
+window.addEventListener("storage", (event) => {
+    if (event.key === ANALYZER_STORAGE_KEY) {
+        reloadAnalyzerStateAndRefresh("storage update");
+    }
 });
 
 loadFocusState();

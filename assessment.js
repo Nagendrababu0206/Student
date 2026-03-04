@@ -49,6 +49,21 @@ const courseCatalog = [
     { name: "School Study Skills Bootcamp", vector: [0.2, 0.2, 0.3, 0.2, 0.2, 0.5, 0.4, 0.3, 0.8, 0.2], level: "school" },
     { name: "Exam Revision Sprint", vector: [0.2, 0.3, 0.4, 0.2, 0.2, 0.4, 0.4, 0.8, 0.6, 0.3], level: "school" }
 ];
+const RECOMMENDATION_LIMIT = 5;
+const recommendationCache = new Map();
+const rankedCourseCatalog = courseCatalog.map((course) => {
+    const lowerName = course.name.toLowerCase();
+    return {
+        ...course,
+        lowerName,
+        hasAlgebra: lowerName.includes("algebra"),
+        hasProgram: lowerName.includes("program"),
+        hasDataOrStats: lowerName.includes("data") || lowerName.includes("statistics"),
+        hasAi: lowerName.includes("ai"),
+        hasExam: lowerName.includes("exam"),
+        hasBeginnerSupport: lowerName.includes("foundations") || lowerName.includes("beginners")
+    };
+});
 
 const questionBank = {
     mathematics: {
@@ -271,36 +286,65 @@ function buildUserVector({ subject, style, intent, performance, quizScore, assig
 function recommendWithML({ grade, subject, intent, performance, quizScore, assignmentMarks, userVector }) {
     const academicScore = calculateAcademicScore(quizScore, assignmentMarks);
     const mappedSubject = normalizeSubjectForModel(subject);
-    return courseCatalog
-        .map((course) => {
-            let score = cosineSimilarity(userVector, course.vector);
-            if (course.level === grade) {
-                score += 0.2;
+    const cacheKey = [
+        grade,
+        mappedSubject,
+        intent,
+        performance,
+        academicScore,
+        userVector.join("|")
+    ].join("::");
+    const cached = recommendationCache.get(cacheKey);
+    if (cached) {
+        return cached.map((item) => ({ ...item }));
+    }
+
+    const rankedTop = [];
+    const needsFoundations = performance === "low" || academicScore < 60;
+    for (const course of rankedCourseCatalog) {
+        let score = cosineSimilarity(userVector, course.vector);
+        if (course.level === grade) {
+            score += 0.2;
+        }
+        if (mappedSubject === "mathematics" && course.hasAlgebra) {
+            score += 0.1;
+        }
+        if (mappedSubject === "programming" && course.hasProgram) {
+            score += 0.1;
+        }
+        if (mappedSubject === "analytics" && course.hasDataOrStats) {
+            score += 0.1;
+        }
+        if (mappedSubject === "ai" && course.hasAi) {
+            score += 0.1;
+        }
+        if (intent === "Certification preparation" && course.hasExam) {
+            score += 0.14;
+        }
+        if (needsFoundations && course.hasBeginnerSupport) {
+            score += 0.1;
+        }
+
+        const result = { name: course.name, score: Math.max(0, Math.min(score, 1.9)) };
+        let insertAt = rankedTop.length;
+        while (insertAt > 0 && rankedTop[insertAt - 1].score < result.score) {
+            insertAt -= 1;
+        }
+        if (insertAt < RECOMMENDATION_LIMIT) {
+            rankedTop.splice(insertAt, 0, result);
+            if (rankedTop.length > RECOMMENDATION_LIMIT) {
+                rankedTop.pop();
             }
-            if (mappedSubject === "mathematics" && course.name.toLowerCase().includes("algebra")) {
-                score += 0.1;
-            }
-            if (mappedSubject === "programming" && course.name.toLowerCase().includes("program")) {
-                score += 0.1;
-            }
-            if (mappedSubject === "analytics" && (course.name.toLowerCase().includes("data") || course.name.toLowerCase().includes("statistics"))) {
-                score += 0.1;
-            }
-            if (mappedSubject === "ai" && course.name.toLowerCase().includes("ai")) {
-                score += 0.1;
-            }
-            if (intent === "Certification preparation" && course.name.toLowerCase().includes("exam")) {
-                score += 0.14;
-            }
-            if (performance === "low" || academicScore < 60) {
-                if (course.name.toLowerCase().includes("foundations") || course.name.toLowerCase().includes("beginners")) {
-                    score += 0.1;
-                }
-            }
-            return { name: course.name, score: Math.max(0, Math.min(score, 1.9)) };
-        })
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 5);
+        }
+    }
+
+    const output = rankedTop.slice(0, RECOMMENDATION_LIMIT);
+    recommendationCache.set(cacheKey, output.map((item) => ({ ...item })));
+    if (recommendationCache.size > 100) {
+        const firstKey = recommendationCache.keys().next().value;
+        recommendationCache.delete(firstKey);
+    }
+    return output;
 }
 
 function renderRecommendationResults(recommendations) {
