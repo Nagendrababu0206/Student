@@ -10,8 +10,10 @@ const consentCheck = document.getElementById("consentCheck");
 const selectedSubjectsPanel = document.getElementById("selectedSubjectsPanel");
 
 const ANALYZER_STORAGE_KEY = "eduaiAnalyzerState";
+const SUBMISSIONS_STORAGE_KEY = "eduaiAssignmentSubmissions";
 const studentEmail = localStorage.getItem("eduaiCurrentUser") || "student@eduai.com";
-welcomeUser.textContent = studentEmail.split("@")[0];
+const studentName = studentEmail.split("@")[0];
+welcomeUser.textContent = studentName;
 
 const RESOURCE_SUBJECT_BY_ID = {
     r1: "mathematics", r2: "mathematics", r9: "mathematics", r10: "mathematics",
@@ -309,6 +311,42 @@ if (assignmentForm) {
         }
         payload.assessments = assessments;
         writePayload(payload);
+
+        const answerDetails = activeQuestions.map((question, index) => {
+            const selected = document.querySelector(`input[name="assignment_${index}"]:checked`);
+            const optionIndex = selected ? Number(selected.value) : -1;
+            return {
+                question: question.q,
+                selectedOption: optionIndex >= 0 ? question.options[optionIndex] : "No answer",
+                isCorrect: optionIndex === question.answer
+            };
+        });
+
+        let submissions = [];
+        try {
+            const parsed = JSON.parse(localStorage.getItem(SUBMISSIONS_STORAGE_KEY) || "[]");
+            submissions = Array.isArray(parsed) ? parsed : [];
+        } catch {
+            submissions = [];
+        }
+
+        submissions.push({
+            studentEmail,
+            studentName,
+            subject: normalizeSubject(subject),
+            selectedSubjects: [...selectedSubjects],
+            assignmentMarks,
+            quizScore,
+            points,
+            answers: answerDetails,
+            timestamp: new Date().toISOString()
+        });
+
+        if (submissions.length > 200) {
+            submissions = submissions.slice(submissions.length - 200);
+        }
+
+        localStorage.setItem(SUBMISSIONS_STORAGE_KEY, JSON.stringify(submissions));
 
         assignmentSummary.textContent = `Assignment marks calculated: ${assignmentMarks}% from [${selectedSubjects.join(", ")}]. Quiz considered: ${quizScore}%. Academic points: ${points}%. Analyzer updated.`;
     });

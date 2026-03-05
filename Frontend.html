@@ -21,6 +21,24 @@
             <p class="subtitle">Welcome back. Sign in to continue learning.</p>
 
             <form id="loginForm" action="#" method="post" class="form" novalidate>
+                <div class="role-picker" aria-label="Select user role">
+                    <p class="role-title">Who is logging in?</p>
+                    <div class="role-options">
+                        <label class="role-card">
+                            <input type="radio" name="userRole" value="student" checked>
+                            <span class="role-icon" aria-hidden="true">ST</span>
+                            <span class="role-name">Student</span>
+                            <span class="role-note">Go to learning dashboard</span>
+                        </label>
+                        <label class="role-card">
+                            <input type="radio" name="userRole" value="teacher">
+                            <span class="role-icon" aria-hidden="true">TC</span>
+                            <span class="role-name">Teacher</span>
+                            <span class="role-note">View answers and papers</span>
+                        </label>
+                    </div>
+                </div>
+
                 <div class="input-type">
                     <label class="label" for="username">Email</label>
                     <input type="email" id="username" name="username" placeholder="Enter your email" required>

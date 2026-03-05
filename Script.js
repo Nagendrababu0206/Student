@@ -1,4 +1,5 @@
 const loginForm = document.getElementById("loginForm");
+const roleInputs = document.querySelectorAll("input[name=\"userRole\"]");
 const IS_LOCAL =
     window.location.hostname === "localhost" ||
     window.location.hostname === "127.0.0.1" ||
@@ -6,9 +7,10 @@ const IS_LOCAL =
     window.location.hostname === "";
 const LOCAL_API_BASE = "http://localhost:3001";
 let remoteApiBase = "";
+let playLoginAttemptAnimation = () => {};
 const API_BASE_STORAGE_KEY = "eduaiApiBase";
-const PROXY_LOGIN_TIMEOUT_MS = 1800;
-const DIRECT_LOGIN_TIMEOUT_MS = PROXY_LOGIN_TIMEOUT_MS + 1200;
+const PROXY_LOGIN_TIMEOUT_MS = 1200;
+const DIRECT_LOGIN_TIMEOUT_MS = PROXY_LOGIN_TIMEOUT_MS + 800;
 
 function normalizeBackendUrl(value) {
     return String(value || "")
@@ -50,7 +52,11 @@ async function getApiBase() {
 const resolvedApiBasePromise = IS_LOCAL ? Promise.resolve(LOCAL_API_BASE) : getApiBase();
 
 function warmupHomePageAssets() {
-    const assets = ["HomePage.html", "homeStyle.css", "homePage_resources.js"];
+    // Keep warmup lightweight so it does not compete with login API requests.
+    const role = getSelectedRole();
+    const assets = role === "teacher"
+        ? ["TeacherDashboard.html", "teacherStyle.css"]
+        : ["HomePage.html", "homeStyle.css"];
     const head = document.head;
     if (!head) {
         return;
@@ -64,6 +70,55 @@ function warmupHomePageAssets() {
         link.href = href;
         head.appendChild(link);
     });
+}
+
+function getSelectedRole() {
+    const selected = document.querySelector("input[name=\"userRole\"]:checked");
+    return selected?.value === "teacher" ? "teacher" : "student";
+}
+
+function initLoginGraphicAnimation() {
+    const tickerElement = document.querySelector(".login-graphic");
+    const tickElements = document.querySelectorAll(".login-graphic .node");
+    if (!tickerElement || !tickElements.length) {
+        return;
+    }
+    tickerElement.classList.add("ticker");
+    tickElements.forEach((node) => node.classList.add("tick"));
+
+    import("https://cdn.jsdelivr.net/npm/animejs/+esm")
+        .then(({ createScope, createTimeline, stagger }) => {
+            createScope({
+                mediaQueries: {
+                    portrait: "(orientation: portrait)",
+                }
+            }).add(({ matches }) => {
+                const isPortrait = matches.portrait;
+                createTimeline({
+                    loop: true,
+                    alternate: true,
+                    defaults: { duration: 1400, ease: "inOutSine" }
+                }).add(".login-graphic .node", {
+                    y: isPortrait ? 0 : [-8, 8, -8],
+                    x: isPortrait ? [-8, 8, -8] : 0,
+                }, stagger(100));
+            });
+
+            playLoginAttemptAnimation = () => {
+                createTimeline()
+                    .add(".tick", {
+                        y: "-=6",
+                        duration: 50,
+                    }, stagger(10))
+                    .add(".ticker", {
+                        rotate: 360,
+                        duration: 1920,
+                    }, "<");
+            };
+        })
+        .catch(() => {
+            // Animation is optional; keep login functional if CDN is unavailable.
+        });
 }
 
 function postJson(url, payload, timeoutMs = 0) {
@@ -164,10 +219,14 @@ async function postLogin(payload) {
 }
 
 if (loginForm) {
+    initLoginGraphicAnimation();
+    roleInputs.forEach((input) => {
+        input.addEventListener("change", warmupHomePageAssets);
+    });
     if (typeof window.requestIdleCallback === "function") {
-        window.requestIdleCallback(() => warmupHomePageAssets());
+        window.requestIdleCallback(() => warmupHomePageAssets(), { timeout: 2000 });
     } else {
-        setTimeout(() => warmupHomePageAssets(), 0);
+        setTimeout(() => warmupHomePageAssets(), 400);
     }
 
     loginForm.addEventListener("submit", async function (event) {
@@ -186,6 +245,8 @@ if (loginForm) {
             return;
         }
 
+        playLoginAttemptAnimation();
+
         try {
             const response = await postLogin({ username, password });
 
@@ -196,7 +257,9 @@ if (loginForm) {
             }
 
             localStorage.setItem("eduaiCurrentUser", username);
-            window.location.replace("HomePage.html");
+            const selectedRole = getSelectedRole();
+            localStorage.setItem("eduaiUserRole", selectedRole);
+            window.location.replace(selectedRole === "teacher" ? "TeacherDashboard.html" : "HomePage.html");
         } catch {
             alert("Backend not reachable. If deployed, verify Vercel BACKEND_URL and Render backend health.");
         }

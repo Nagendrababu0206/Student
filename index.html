@@ -90,10 +90,10 @@
                 <line x1="435" y1="102" x2="485" y2="102" stroke="url(#cardGrad)" stroke-width="4"></line>
                 <line x1="665" y1="102" x2="715" y2="102" stroke="url(#cardGrad)" stroke-width="4"></line>
 
-                <circle cx="115" cy="42" r="8" fill="#22d3ee"></circle>
-                <circle cx="345" cy="42" r="8" fill="#38bdf8"></circle>
-                <circle cx="575" cy="42" r="8" fill="#60a5fa"></circle>
-                <circle cx="835" cy="42" r="8" fill="#67e8f9"></circle>
+                <circle class="circle" cx="115" cy="42" r="8" fill="#22d3ee"></circle>
+                <circle class="circle" cx="345" cy="42" r="8" fill="#38bdf8"></circle>
+                <circle class="circle" cx="575" cy="42" r="8" fill="#60a5fa"></circle>
+                <circle class="circle" cx="835" cy="42" r="8" fill="#67e8f9"></circle>
             </svg>
         </section>
 
@@ -126,5 +126,22 @@
             </article>
         </section>
     </main>
+
+    <script type="module">
+        import { createScope, createTimeline, stagger } from "https://cdn.jsdelivr.net/npm/animejs/+esm";
+
+        createScope({
+            mediaQueries: {
+                portrait: "(orientation: portrait)",
+            }
+        })
+            .add(({ matches }) => {
+                const isPortrait = matches.portrait;
+                createTimeline({ loop: true, alternate: true, defaults: { duration: 1400, ease: "inOutSine" } }).add(".circle", {
+                    y: isPortrait ? 0 : [-50, 50, -50],
+                    x: isPortrait ? [-50, 50, -50] : 0,
+                }, stagger(100));
+            });
+    </script>
 </body>
 </html>

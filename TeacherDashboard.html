@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EDUAI | Teacher Dashboard</title>
+    <link rel="stylesheet" href="teacherStyle.css">
+</head>
+<body>
+    <header class="teacher-topbar">
+        <div>
+            <p class="eyebrow">Teacher Console</p>
+            <h1>Classroom Review Hub</h1>
+        </div>
+        <div class="top-actions">
+            <span id="welcomeTeacher">Teacher</span>
+            <a class="ghost-btn" href="AdminDashboard.html">Admin Analytics</a>
+            <button id="logoutBtn" type="button" class="solid-btn">Logout</button>
+        </div>
+    </header>
+
+    <main class="teacher-shell">
+        <section class="hero-panel">
+            <h2>Welcome to the Teacher Workspace</h2>
+            <p>Track assignment submissions, review student answers, and open question papers in one place.</p>
+        </section>
+
+        <section class="action-grid" aria-label="Teacher quick actions">
+            <article class="action-card">
+                <h3>Student Submitted Answers</h3>
+                <p>Open all assignment submissions captured from students and review details quickly.</p>
+                <a href="TeacherAnswers.html" class="cta-btn">Open Answers Page</a>
+            </article>
+
+            <article class="action-card">
+                <h3>Question Paper Page</h3>
+                <p>Browse subject-wise question papers for quizzes and assignments used in the platform.</p>
+                <a href="TeacherQuestionPapers.html" class="cta-btn">Open Question Papers</a>
+            </article>
+        </section>
+    </main>
+
+    <script src="teacherDashboard.js"></script>
+</body>
+</html>

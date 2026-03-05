@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EDUAI | Question Papers</title>
+    <link rel="stylesheet" href="teacherStyle.css">
+</head>
+<body>
+    <header class="teacher-topbar">
+        <div>
+            <p class="eyebrow">Teacher Console</p>
+            <h1>Question Paper Page</h1>
+        </div>
+        <div class="top-actions">
+            <a class="ghost-btn" href="TeacherDashboard.html">Back to Teacher Home</a>
+            <button id="logoutBtn" type="button" class="solid-btn">Logout</button>
+        </div>
+    </header>
+
+    <main class="teacher-shell">
+        <section class="list-panel">
+            <h2>Subject Question Bank</h2>
+            <p class="empty-state">Quiz and assignment questions used in student workflows.</p>
+            <div id="paperGrid" class="paper-grid"></div>
+        </section>
+    </main>
+
+    <script src="teacherQuestionPapers.js"></script>
+</body>
+</html>
