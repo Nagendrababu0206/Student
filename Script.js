@@ -248,19 +248,29 @@ if (loginForm) {
         playLoginAttemptAnimation();
 
         try {
+            console.log("Attempting login for:", username);
             const response = await postLogin({ username, password });
+            console.log("Login response status:", response.status);
 
             if (!response.ok) {
                 const payload = await response.json().catch(() => ({}));
+                console.log("Login failed payload:", payload);
                 alert(payload.message || payload.error || "Login failed.");
                 return;
             }
 
+            // Store user session
             localStorage.setItem("eduaiCurrentUser", username);
             const selectedRole = getSelectedRole();
             localStorage.setItem("eduaiUserRole", selectedRole);
-            window.location.replace(selectedRole === "teacher" ? "TeacherDashboard.html" : "HomePage.html");
-        } catch {
+            
+            console.log("Login successful, redirecting to:", selectedRole === "teacher" ? "TeacherDashboard.html" : "HomePage.html");
+            
+            // Use href for better navigation
+            const redirectUrl = selectedRole === "teacher" ? "TeacherDashboard.html" : "HomePage.html";
+            window.location.href = redirectUrl;
+        } catch (error) {
+            console.error("Login error:", error);
             alert("Backend not reachable. If deployed, verify Vercel BACKEND_URL and Render backend health.");
         }
     });
